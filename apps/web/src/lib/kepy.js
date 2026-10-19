@@ -15,10 +15,9 @@
 //   disciplinas: string[],                    // nomes do acervo
 // }
 
-const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+import { normalizar } from './texto.js';
 
-// Minúsculas e sem acento: "Ética" e "etica" são a mesma pergunta.
-export const normalizar = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
 // Palavras que não identificam matéria nenhuma — quase todas começam assim.
 const GENERICAS = new Set(['direito', 'direitos', 'processual', 'processo', 'do', 'da', 'de', 'dos', 'das', 'e']);

@@ -911,19 +911,20 @@ test.describe('Ficha de boas-vindas', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Revisões: as abas que não filtravam
+// Revisões: uma lista de verdade, agora agrupada e filtrável
 // ---------------------------------------------------------------------------
 //
-// O código era `let filtered = all` com dois `if` que quase nunca casavam:
-// clicar em "Errei" listava o acervo inteiro, com a etiqueta vermelha "Errei"
-// colada até em questão acertada. Um teste que só contasse linhas continuaria
-// verde; por isso estes cobram a MESMA questão em duas abas diferentes.
+// O código antigo era `let filtered = all` com dois `if` que quase nunca
+// casavam: clicar em "Errei" listava o acervo inteiro, com a etiqueta vermelha
+// "Errei" colada até em questão acertada. Um teste que só contasse linhas
+// continuaria verde; por isso estes cobram a MESMA questão em situações
+// diferentes.
 test.describe('Revisões', () => {
   test.beforeEach(async ({ page }) => {
     await entrar(page);
   });
 
-  test('a questão respondida sai de "nunca respondi" e cai na aba certa', async ({ page }) => {
+  test('a questão respondida só cai em "Errei" quando a última tentativa foi errada', async ({ page }) => {
     await page.click('[data-testid="nav-questoes"]');
     await page.click('[data-testid="gerar-quiz"]');
 
@@ -939,11 +940,9 @@ test.describe('Revisões', () => {
 
     await page.click('[data-testid="nav-revisoes"]');
 
-    // Respondida é respondida: não pode continuar em "Nunca respondi".
-    await page.click('[data-testid="aba-aberto"]');
-    await expect(page.locator('body')).not.toContainText(enunciado);
-
-    await page.click('[data-testid="aba-errei"]');
+    // A aba padrão é a lista de erradas; "Para revisar" e "Nunca respondi"
+    // saíram da tela.
+    await expect(page.locator('[data-testid="aba-errei"]')).toBeVisible();
     if (acertou) {
       // O bug antigo aparecia exatamente aqui: acertada listada em "Errei".
       await expect(page.locator('body')).not.toContainText(enunciado);
@@ -952,11 +951,11 @@ test.describe('Revisões', () => {
     }
   });
 
-  test('"Revisar agora" abre um quiz com a questão escolhida', async ({ page }) => {
+  test('"Refazer" abre um quiz com a questão escolhida', async ({ page }) => {
     // Responde uma questão aqui mesmo em vez de contar com o que outro teste
-    // deixou: a aba "Nunca respondi" fica vazia depois que a suíte percorre o
-    // acervo de teste, e um teste que depende da ordem de execução é um teste
-    // que quebra sozinho.
+    // deixou: a lista de menor desempenho muda com o que a suíte já respondeu,
+    // e um teste que depende da ordem de execução é um teste que quebra
+    // sozinho.
     await page.click('[data-testid="nav-questoes"]');
     await page.click('[data-testid="gerar-quiz"]');
     await expect(page.locator('[data-testid="alt-0"]')).toBeVisible();
@@ -981,6 +980,99 @@ test.describe('Revisões', () => {
 
     // A questão aberta tem de ser AQUELA, e não uma qualquer do acervo.
     expect(await enunciado.innerText()).toBe(naLista);
+  });
+
+  test('agrupa por disciplina, filtra e abre o gabarito no modal', async ({ page }) => {
+    // Acervo montado na resposta da API: o seed compartilhado não tem
+    // disciplina (ver comentário do "Foco do dia"), e sem duas disciplinas o
+    // agrupamento passaria despercebido.
+    const QUESTOES = [
+      {
+        id: 9501, exame: 96, tipo_prova: 1, numero: 1, banca: 'FGV', ano: 2026,
+        enunciado: 'Questão de teste sobre homicídio e lesão corporal.',
+        alternativas: ['penal A', 'penal B', 'penal C', 'penal D'],
+        gabarito: 1, anulada: false,
+        disciplina: 'Direito Penal', tema: 'Crimes contra a pessoa',
+        explicacao: 'Comentário de teste do modal.', explicacao_fonte: 'ia', revisada: false,
+      },
+      {
+        id: 9502, exame: 96, tipo_prova: 1, numero: 2, banca: 'FGV', ano: 2026,
+        enunciado: 'Questão de teste sobre contrato e obrigações.',
+        alternativas: ['civil A', 'civil B', 'civil C', 'civil D'],
+        gabarito: 0, anulada: false,
+        disciplina: 'Direito Civil', tema: 'Execução contratual',
+        explicacao: null, explicacao_fonte: null, revisada: false,
+      },
+      {
+        // Acertada na última: existe para a busca ter algo que a aba "Errei"
+        // não deve mostrar.
+        id: 9503, exame: 96, tipo_prova: 1, numero: 3, banca: 'FGV', ano: 2026,
+        enunciado: 'Questão de teste sobre furto.',
+        alternativas: ['furto A', 'furto B', 'furto C', 'furto D'],
+        gabarito: 2, anulada: false,
+        disciplina: 'Direito Penal', tema: 'Crimes contra o patrimônio',
+        explicacao: null, explicacao_fonte: null, revisada: false,
+      },
+    ];
+
+    // Como o estudo-service devolve: da mais recente para a mais antiga.
+    const TENTATIVAS = [
+      { id: 'e2e-rev-3', questao_id: '9503', respondida_em: '2026-08-02T10:00:00.000Z', alternativa: 2, correta: true, tempo_seg: 30 },
+      { id: 'e2e-rev-2', questao_id: '9502', respondida_em: '2026-08-02T09:00:00.000Z', alternativa: 2, correta: false, tempo_seg: 40 },
+      // Alternativa A, enquanto o gabarito é B: o modal tem de mostrar as duas
+      // marcas, com rótulos diferentes.
+      { id: 'e2e-rev-1', questao_id: '9501', respondida_em: '2026-08-02T08:00:00.000Z', alternativa: 0, correta: false, tempo_seg: 50 },
+    ];
+
+    await page.route('**/api/questoes*', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(QUESTOES) }));
+    await page.route('**/api/tentativas*', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TENTATIVAS) }));
+
+    await entrar(page);
+    await page.click('[data-testid="nav-revisoes"]');
+
+    // As abas que restaram.
+    await expect(page.locator('[data-testid="aba-errei"]')).toBeVisible();
+    await expect(page.locator('[data-testid="aba-favoritas"]')).toBeVisible();
+    await expect(page.locator('[data-testid="aba-menor"]')).toBeVisible();
+    await expect(page.locator('[data-testid="aba-todas"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="aba-aberto"]')).toHaveCount(0);
+
+    // Agrupamento na ordem em que as questões aparecem (Penal antes de Civil).
+    const grupos = page.locator('[data-testid="grupo-revisao"]');
+    await expect(grupos).toHaveCount(2);
+    await expect(grupos.nth(0).locator('[data-testid="grupo-disciplina"]')).toHaveText('Direito Penal');
+    await expect(grupos.nth(1).locator('[data-testid="grupo-disciplina"]')).toHaveText('Direito Civil');
+    await expect(grupos.nth(0).locator('[data-testid="grupo-meta"]')).toContainText('1 errada');
+
+    // Busca sem acento pelo tema: "execucao" casa com "Execução".
+    await page.fill('[data-testid="busca-revisao"]', 'execucao');
+    await expect(page.locator('[data-testid^="revisao-item-"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="grupo-disciplina"]')).toHaveText('Direito Civil');
+
+    await page.fill('[data-testid="busca-revisao"]', 'sem resultado nenhum');
+    await expect(page.locator('[data-testid="revisao-sem-filtro"]')).toContainText('Nenhuma questão com esse filtro.');
+    await page.fill('[data-testid="busca-revisao"]', '');
+
+    // Filtro por disciplina, e o topo "Refazer as N" acompanha.
+    await page.selectOption('[data-testid="filtro-disciplina"]', 'Direito Penal');
+    await expect(page.locator('[data-testid^="revisao-item-"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="revisar-tudo"]')).toContainText('Refazer a questão');
+    await page.selectOption('[data-testid="filtro-disciplina"]', 'todas');
+
+    // Modal: gabarito e a resposta errada da última tentativa, com rótulos
+    // distintos. O foco entra no fechar e o Esc devolve ao botão que abriu.
+    await page.click('[data-testid="ver-questao-9501"]');
+    const modal = page.locator('[data-testid="ver-questao-modal"]');
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('[data-testid="ver-questao-alternativa-1"]')).toContainText('Gabarito');
+    await expect(modal.locator('[data-testid="ver-questao-alternativa-0"]')).toContainText('Sua resposta na última tentativa');
+    await expect(page.locator('[data-testid="fechar-ver-questao"]')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(modal).toHaveCount(0);
+    await expect(page.locator('[data-testid="ver-questao-9501"]')).toBeFocused();
   });
 });
 

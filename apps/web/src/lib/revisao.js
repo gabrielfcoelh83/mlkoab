@@ -117,3 +117,82 @@ export function classificarRevisao(questoes = [], tentativas = {}, favoritos = [
     },
   };
 }
+
+/**
+ * Agrupa os itens da revisão pela disciplina, na ordem em que aparecem.
+ *
+ * A lista chega ordenada por outro critério (a errada há mais tempo primeiro,
+ * o menor desempenho primeiro) e o grupo herda a posição do seu primeiro item:
+ * reordenar as disciplinas aqui esconderia essa prioridade. Questão sem
+ * disciplina não some — vira "Sem classificação", porque sumir pareceria
+ * perda de dado.
+ */
+export function agruparPorDisciplina(itens = []) {
+  const grupos = new Map();
+
+  for (const item of itens) {
+    const disciplina = String(item?.questao?.disciplina ?? '').trim() || 'Sem classificação';
+    if (!grupos.has(disciplina)) grupos.set(disciplina, []);
+    grupos.get(disciplina).push(item);
+  }
+
+  return [...grupos.entries()].map(([disciplina, doGrupo]) => ({ disciplina, itens: doGrupo }));
+}
+
+// 'AAAA-MM-DD' já é um dia do calendário: passá-lo por `new Date` o leria como
+// meia-noite UTC e, no Brasil, cairia no dia anterior. Data com hora é lida e
+// reduzida ao dia LOCAL — é o dia de quem está estudando, não o de Greenwich.
+const SO_DATA = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function chaveDoDiaLocal(valor) {
+  if (valor == null || valor === '') return null;
+
+  if (typeof valor === 'string') {
+    const so = SO_DATA.exec(valor);
+    if (so) return `${so[1]}-${so[2]}-${so[3]}`;
+  }
+
+  const data = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(data.getTime())) return null;
+
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${data.getFullYear()}-${mes}-${dia}`;
+}
+
+/**
+ * Questões refeitas hoje depois de um erro: as que tinham uma tentativa errada
+ * antes da tentativa de hoje e receberam uma nova.
+ *
+ * Conta a questão, não a tentativa: refazer duas vezes no mesmo dia ainda é
+ * uma segunda chance. O acerto é o da última tentativa de hoje — é ela que
+ * diz como a questão ficou.
+ *
+ * O corte é o dia LOCAL (`getFullYear`/`getMonth`/`getDate`). Comparar o
+ * `toISOString()` faria a resposta das 23h em São Paulo contar como amanhã.
+ */
+export function refeitasHoje(tentativas = {}, hoje = new Date()) {
+  const diaDeHoje = chaveDoDiaLocal(hoje);
+  let refeitas = 0;
+  let acertos = 0;
+
+  for (const registro of Object.values(tentativas || {})) {
+    const hist = Array.isArray(registro?.tentativas) ? registro.tentativas : [];
+
+    let ultimaDeHoje = null;
+    for (const tentativa of hist) {
+      if (chaveDoDiaLocal(tentativa?.data) === diaDeHoje) ultimaDeHoje = tentativa;
+    }
+    if (!ultimaDeHoje) continue;
+
+    // `!== true` e não `=== false`: tentativa antiga sem a chave conta como
+    // erro, a mesma leitura de `situacaoDaQuestao`.
+    const anteriores = hist.slice(0, hist.lastIndexOf(ultimaDeHoje));
+    if (!anteriores.some((t) => t?.correta !== true)) continue;
+
+    refeitas += 1;
+    if (ultimaDeHoje.correta === true) acertos += 1;
+  }
+
+  return { refeitas, acertos };
+}

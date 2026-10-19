@@ -66,7 +66,7 @@ const DEFAULT_STATE = {
   cronograma: {},
   questoes: { selected: null, misto: false, quiz: null, idx: 0, selectedAlt: null, marcadas: {}, conferidas: {}, certas: 0, erradas: 0, done: false, revisando: false, corrigindo: false },
   simulados: { running: {}, resultados_historico: [] },
-  revisoes: { tab: 'todas' },
+  revisoes: { tab: 'errei' },
   desempenho: { period: '6' },
   estatisticas: { range: '30d', disc: 'Todas' },
   disciplinas: { openNome: null },
