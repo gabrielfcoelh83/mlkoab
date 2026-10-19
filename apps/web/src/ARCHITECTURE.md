@@ -45,7 +45,7 @@ src/
     ├── fila.js           # Envio um a um, que para quando a sessão acaba (respostas do simulado)
     ├── storage.js        # localStorage: estado da interface e dados por conta
     ├── metrics.js        # Meta diária, sequência, taxas, evolução, estatísticas
-    ├── revisao.js        # O que está errado / não respondido / favoritado
+    ├── revisao.js        # O que está errado / favoritado, refeitas do dia e agrupamento por disciplina
     ├── disciplinas.js    # Disciplinas derivadas do acervo, cores, prioridade
     ├── agenda.js         # Plano da semana (folga, ritmo, bloco de estudo), calendário e eventos do Google Agenda
     ├── perfil.js         # Payload do JWT, nome de exibição, saudação
@@ -184,7 +184,7 @@ recarregar a página volta para ela — mas não há URL por tela.
 | `cronograma` | `Cronograma.jsx` | Sugestão de semana, calendário e Google Agenda (ver "Cronograma") | `diasDeEstudo`, `bloco`, `salvarAgenda`, `perfilCarregado`, `sessaoExpirou` |
 | `questoes` | `Questoes.jsx` | Meta do dia, cadernos por matéria e quiz (ver "Questões") | `quest`, `setQuest`, `registrar`, `acervo`, `recarregarAcervo` |
 | `simulados` | `Simulados.jsx` | Hub, formulário, prova e resultado do simulado (ver "Simulados") | `sim`, `setSim`, `setResultadosHistorico`, `registrarRespostas`, `acervo`, `recarregarAcervo` |
-| `revisoes` | `Revisoes.jsx` | Erradas, favoritas, menor desempenho | `rev`, `setRev`, `favoritos`, `toggleFavorito` |
+| `revisoes` | `Revisoes.jsx` | Erradas, favoritas e menor desempenho, agrupadas por disciplina; busca, filtro e modal de gabarito | `rev`, `setRev`, `favoritos`, `toggleFavorito` |
 | `desempenho` | `Desempenho.jsx` | Evolução ao longo do tempo | `perf`, `setPerf` |
 | `estatisticas` | `Estatisticas.jsx` | Números por período e disciplina | `filtros`, `setFiltros` |
 | `favoritos` | `Favoritos.jsx` | Questões marcadas com estrela | `toggleFavorito` (recebe `favoritos` mas não usa; lê de `revisao`) |
@@ -346,13 +346,39 @@ linha própria no proxy do Vite):
 
 ### Revisões (Caderno de Erros)
 
+A tela serve ao erro. São três abas — "Errei" (a padrão), "Favoritas" e
+"Menor desempenho"; um `rev.tab` antigo (`todas`/`aberto`) cai em "Errei" pelo
+fallback de `ABAS[0]` em `Revisoes.jsx`, sem migração do localStorage.
+
+- **Topo:** "Errei na última vez" (`resumo.erros`, com os sem motivo),
+  "Refeitas hoje" (`refeitasHoje`, `lib/revisao.js`) e "Acertei na última vez"
+  (`resumo.acertos`). `refeitasHoje` conta questões com uma tentativa errada
+  anterior à de hoje e o acerto da última tentativa de hoje; o corte é o dia
+  **local**, não o UTC.
+- **Lista:** `agruparPorDisciplina` mantém a ordem da aba e cria um grupo por
+  disciplina (vazia vira "Sem classificação"). Cada grupo tem a contagem, os
+  erros sem motivo (na aba "Errei") e "Refazer as N".
+- **Busca e filtro:** estado local, sem persistir. A busca usa `normalizar`
+  (`lib/texto.js`) no enunciado e no tema; o select lista as disciplinas da
+  aba. Os dois filtram o topo e os grupos.
+- **Cartão:** tema como título (ou procedência, quando vazio), procedência e
+  acertos/tentativas, enunciado em duas linhas, estrela e "Refazer", sem o
+  pill de situação. O rodapé traz "Ver questão e gabarito".
+
+`VerQuestao.tsx` (novo, em TypeScript) é o modal só de leitura: tema,
+procedência, posição, alternativas com gabarito e a resposta da última
+tentativa (com rótulos distintos quando são a mesma), `GabaritoComentado` e o
+`MotivoDoErro`. Navega pela lista visível, na disciplina da questão ou em
+todas; Esc e o fundo fecham, e o foco volta ao botão que abriu. Não grava
+tentativa — refazer dentro do modal é a fase 2.
+
 Na aba "Errei", cada erro pode receber um motivo opcional ("Por que errei?"):
 os valores de `MOTIVOS_DO_ERRO` (`lib/revisao.js`) mais uma nota livre. O
 motivo é gravado na **última** tentativa (a errada) por `anotarMotivoDoErro`,
 e `substituirTentativa` (`lib/historico.js`) troca a tentativa no estado sem
 mexer na ordem do histórico. Acrescentar, em vez de trocar, mudaria qual é a
-"última tentativa". `classificarRevisao` conta `errosSemMotivo` para o
-lembrete da tela. Errar de novo gera tentativa nova, sem motivo.
+"última tentativa". `classificarRevisao` conta `errosSemMotivo` para o cartão
+do topo e o grupo. Errar de novo gera tentativa nova, sem motivo.
 
 O simulado registra **todas** as questões da prova
 (`respostasParaRegistrar`, `lib/simulado.js`): as em branco vão como erradas
@@ -458,7 +484,7 @@ const DEFAULT_STATE = {
   cronograma: {},
   questoes: { selected: null, quiz: null, idx: 0, selectedAlt: null, certas: 0, erradas: 0, done: false },
   simulados: { running: {}, resultados_historico: [] },  // ver Pendências
-  revisoes: { tab: 'todas' },
+  revisoes: { tab: 'errei' },
   desempenho: { period: '6' },
   estatisticas: { range: '30d', disc: 'Todas' },
   disciplinas: { openNome: null },

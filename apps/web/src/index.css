@@ -257,6 +257,44 @@ button:not(:disabled):active {
   }
 }
 
+/* --- Modal "Ver questão e gabarito" ------------------------------------- */
+
+/* A entrada é só opacidade: o modal não "voa" de lugar nenhum, ele cobre a
+   tela. Em celular, ocupa a tela inteira e as ações do cartão descem para
+   baixo do conteúdo — o dedo alcança sem disputar espaço com o enunciado. */
+.ver-questao-fundo {
+  animation: so-opacidade 160ms var(--ease-out) both;
+}
+
+@media (max-width: 560px) {
+  .ver-questao-fundo {
+    padding: 0 !important;
+    align-items: stretch !important;
+  }
+
+  .ver-questao-painel {
+    width: 100% !important;
+    height: 100%;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
+
+  .revisao-cabecalho {
+    flex-direction: column;
+  }
+
+  .revisao-acoes {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .ver-questao-rodape > [data-testid='refazer-no-modal'] {
+    width: 100%;
+    margin-left: 0 !important;
+    justify-content: center;
+  }
+}
+
 /* --- Foco visível onde o estilo inline tirava o contorno ---------------- */
 
 /* Gráfico focável e campos "invisíveis" (sem borda) das anotações: sem isto,
