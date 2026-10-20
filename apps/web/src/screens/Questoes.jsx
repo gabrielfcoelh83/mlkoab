@@ -9,6 +9,7 @@ import {
   BotaoRiscar, GabaritoComentado, ListaDoHistorico, OrigemDaQuestao, SeloRespondida, TrilhaDaQuestao,
 } from '../components/ui/CardDeQuestao';
 import BotaoMarcador from '../components/ui/BotaoMarcador';
+import TextoGrifavel from '../components/ui/TextoGrifavel';
 
 const DIFICULDADE_COR = { 'Fácil': '#4A7A4A', 'Média': '#B07A1F', 'Difícil': '#B4413A' };
 
@@ -110,7 +111,7 @@ function CadernoCard({ theme, s, testid, cor, selo, canto, titulo, descricao, da
   );
 }
 
-export default function Questoes({ theme, s, data, quest, setQuest, registrar, acervo, recarregarAcervo, usuarioTentativas, config, resultados_historico, materiaDeHoje, marcadores, definirMarcador, removerMarcador }) {
+export default function Questoes({ theme, s, data, quest, setQuest, registrar, acervo, recarregarAcervo, usuarioTentativas, config, resultados_historico, materiaDeHoje, marcadores, definirMarcador, removerMarcador, grifos, definirGrifos }) {
   const [tempoInicio, setTempoInicio] = useState(null);
   // O que é só desta tela, para a questão aberta: as alternativas riscadas e
   // o histórico aberto ou fechado. Guardado com o id da questão, e não em
@@ -251,6 +252,9 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
 
   const marcar = (i) => {
     if (!respondendo) return;
+    // O clique que termina uma seleção de texto não é resposta. Sem isto,
+    // grifar uma alternativa marcaria a resposta junto.
+    if (String(window.getSelection() ?? '').length > 0) return;
     setQuest({ marcadas: { ...marcadas, [quest.idx]: i } });
   };
 
@@ -344,6 +348,12 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
   // `registrar` usa. A resposta dada agora também entra assim que o servidor
   // confirma: o selo passa a dizer a data de hoje, que é verdade.
   const historico = current ? historicoDaQuestao(usuarioTentativas, current.id) : null;
+
+  // Os grifos são por questão: o mesmo id no quiz e no modal da Revisões.
+  const grifosDaAtual = current ? grifos?.[String(current.id)] || [] : [];
+  const mudarGrifosDaAtual = (lista) => {
+    if (current) definirGrifos?.(current.id, lista);
+  };
 
   if (current) {
     if (current.dificuldade) {
@@ -687,7 +697,9 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                   as tentativas anteriores acertaram e com qual letra. Quem
                   quer ver clica; quem não quer não leva o gabarito de brinde. */}
               {doCartao.historicoAberto && historico?.total > 0 && <ListaDoHistorico historico={historico} id={idHistorico} />}
-              <div data-testid="enunciado" style={{ fontSize: 15, color: '#1c1b19', lineHeight: 1.65, marginTop: 16, whiteSpace: 'pre-wrap' }}>{current.enunciado}</div>
+              <div data-testid="enunciado" style={{ fontSize: 15, color: '#1c1b19', lineHeight: 1.65, marginTop: 16, whiteSpace: 'pre-wrap' }}>
+                <TextoGrifavel texto={current.enunciado} campo="enunciado" grifos={grifosDaAtual} onMudar={mudarGrifosDaAtual} />
+              </div>
 
               {/* Na correção o grupo é só leitura (`aria-readonly`), não desabilitado:
                   a alternativa continua legível e clicável sem efeito. Com
@@ -722,7 +734,12 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                       data-riscada={alt.riscada ? 'sim' : 'nao'}
                       style={{ flex: 1, fontSize: 13.5, textDecoration: alt.riscada ? 'line-through' : 'none', opacity: alt.riscada ? 0.5 : 1 }}
                     >
-                      {alt.texto}
+                      <TextoGrifavel
+                        texto={alt.texto}
+                        campo={`alt-${alt.i}`}
+                        grifos={grifosDaAtual}
+                        onMudar={mudarGrifosDaAtual}
+                      />
                     </div>
                     {alt.showIcon && alt.icon}
                     <BotaoRiscar theme={theme} indice={alt.i} riscada={alt.riscada} onAlternar={alternarRiscoDe} />

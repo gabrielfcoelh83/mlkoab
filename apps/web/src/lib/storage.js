@@ -95,7 +95,10 @@ const PREFIXO_CONTA = 'ma-questoes-conta-v1:';
 // não conferido, que no estado da interface sumia no "Sair" e, com duas abas
 // abertas, a desatualizada sobrescrevia. A resposta conferida vai para o
 // servidor; o rascunho, até lá, é da conta, como as anotações.
-export const FATIAS_DA_CONTA = ['favoritos', 'anotacoes', 'resultados_historico', 'segundaFase'];
+//
+// `grifos` (marca-texto por questão) não tem rota na API e é do mesmo tipo:
+// fica neste navegador, na chave da conta, e sobrevive ao "Sair".
+export const FATIAS_DA_CONTA = ['favoritos', 'anotacoes', 'resultados_historico', 'segundaFase', 'grifos'];
 
 // Campos dessas fatias que são da tela, e não da conta: a pasta aberta e a
 // nota selecionada mudam só de clicar. Se fossem para a chave da conta, uma

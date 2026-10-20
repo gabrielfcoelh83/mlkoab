@@ -73,6 +73,9 @@ const DEFAULT_STATE = {
   estatisticas: { range: '30d', disc: 'Todas' },
   disciplinas: { openNome: null },
   anotacoes: { folder: 'Todas', activeId: null, itens: [] },
+  // Marca-texto por questão: { [questaoId]: Grifo[] }. Sem rota na API, como
+  // as anotações — fica só neste navegador, na chave da conta.
+  grifos: {},
   favoritos: [],
   configuracoes: { meta: 20, dataProva: null },
   resultados_historico: [],
@@ -522,6 +525,17 @@ export default function App() {
   };
   const updateSlice = (key, partial) =>
     setState((st) => ({ ...st, [key]: typeof partial === 'function' ? partial(st[key]) : { ...st[key], ...partial } }));
+
+  // Os grifos são por questão, e a fatia inteira é um mapa. Lista vazia sai da
+  // chave (evita guardar `{ id: [] }` para sempre) mas o quiz e o modal leem a
+  // ausência como "sem grifo".
+  const definirGrifos = (questaoId, lista) => setState((st) => {
+    const grifos = { ...(st.grifos || {}) };
+    const chave = String(questaoId);
+    if (Array.isArray(lista) && lista.length > 0) grifos[chave] = lista;
+    else delete grifos[chave];
+    return { ...st, grifos };
+  });
 
   const setTheme = (themeKey) => setState((st) => ({ ...st, theme: themeKey }));
 
@@ -1254,6 +1268,7 @@ export default function App() {
     theme, s, data: DATA, go: goTo,
     usuarioTentativas, disciplinas, revisao,
     marcadores, definirMarcador, removerMarcador,
+    grifos: state.grifos, definirGrifos,
     resultados_historico: state.resultados_historico,
     config: state.configuracoes,
     revisarQuestoes, praticarDisciplina, dificuldades,

@@ -65,7 +65,7 @@ function dot(c) {
   return { width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' };
 }
 
-export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, registrar, anotarMotivo, usuarioTentativas, marcadores, definirMarcador, removerMarcador }) {
+export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, registrar, anotarMotivo, usuarioTentativas, marcadores, definirMarcador, removerMarcador, grifos, definirGrifos }) {
   const resumo = revisao.resumo;
 
   // Um `rev.tab` antigo ("favoritas") abre a aba nova sem reescrever o estado
@@ -472,6 +472,7 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
             </div>
             <div style={{ fontSize: 12.5, marginTop: 8, color: '#5f5b55', lineHeight: 1.5 }}>
               Os marcadores ficam salvos na sua conta e aparecem em qualquer aparelho.
+              {' '}Os grifos ficam só neste navegador.
             </div>
           </div>
         </div>
@@ -490,6 +491,8 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
           marcadores={marcadores}
           definirMarcador={definirMarcador}
           removerMarcador={removerMarcador}
+          grifos={grifos}
+          definirGrifos={definirGrifos}
         />
       )}
     </>

@@ -6,6 +6,7 @@ import { alternarRisco } from '../../lib/cardDeQuestao';
 import { ORIGEM_DO_REFAZER, resultadoDoRefazer, resumoDoRefazer } from '../../lib/refazer';
 import MotivoDoErro from './MotivoDoErro';
 import BotaoMarcador, { type MarcadorDaQuestao } from './BotaoMarcador';
+import TextoGrifavel, { type Grifo } from './TextoGrifavel';
 import { BotaoRiscar, GabaritoComentado } from './CardDeQuestao';
 import { dadosDoMarcador } from '../../lib/marcadores';
 import { SITUACAO } from './situacao';
@@ -91,6 +92,8 @@ type Props = {
     dados: { tipo: string; nota?: string | null }
   ) => Promise<unknown>;
   removerMarcador?: (questaoId: number | string) => Promise<unknown>;
+  grifos?: Record<string, Grifo[]>;
+  definirGrifos?: (questaoId: number | string, grifos: Grifo[]) => void;
 };
 
 const LETRA = (i: number) => String.fromCharCode(65 + i);
@@ -109,7 +112,7 @@ const rotuloDaUltima = (situacao: ItemDaRevisao['situacao']) => {
 
 export default function VerQuestao({
   s, theme, itens, indiceInicial, onFechar, modoInicial = 'ler', registrar, anotarMotivo,
-  marcadores, definirMarcador, removerMarcador,
+  marcadores, definirMarcador, removerMarcador, grifos, definirGrifos,
 }: Props) {
   const idTitulo = useId();
   const fecharRef = useRef<HTMLButtonElement>(null);
@@ -190,6 +193,8 @@ export default function VerQuestao({
   if (!atual) return null;
 
   const questao = atual.questao;
+  const grifosDaQuestao = grifos?.[String(questao.id)] || [];
+  const mudarGrifos = (lista: Grifo[]) => definirGrifos?.(questao.id, lista);
   const sit = SITUACAO[atual.situacao];
   const indice = Math.max(0, listaDoEscopo.findIndex((item) => String(item.questao.id) === String(questao.id)));
   const posicao = indice + 1;
@@ -378,7 +383,7 @@ export default function VerQuestao({
           <>
             <div style={{ flex: 1, overflowY: 'auto', padding: '18px 24px 22px' }}>
               <div data-testid="ver-questao-enunciado" style={{ fontSize: 13.5, color: '#4f4b45', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                {questao.enunciado}
+                <TextoGrifavel texto={questao.enunciado || ''} campo="enunciado" grifos={grifosDaQuestao} onMudar={mudarGrifos} />
               </div>
 
               {refazendo ? (
@@ -423,7 +428,13 @@ export default function VerQuestao({
                           }}
                         />
                         <b style={{ flex: 'none' }}>{LETRA(i)})</b>
-                        <span style={{ flex: 1, textDecoration: riscada ? 'line-through' : 'none', color: riscada ? '#7a766f' : '#1c1b19' }}>{texto}</span>
+                        <TextoGrifavel
+                          texto={texto}
+                          campo={`alt-${i}`}
+                          grifos={grifosDaQuestao}
+                          onMudar={mudarGrifos}
+                          style={{ flex: 1, textDecoration: riscada ? 'line-through' : 'none', color: riscada ? '#7a766f' : '#1c1b19' }}
+                        />
                         <BotaoRiscar theme={theme} indice={i} riscada={riscada} onAlternar={alternarRiscoDe} />
                       </div>
                     );
@@ -474,7 +485,13 @@ export default function VerQuestao({
                           <span aria-hidden="true" style={{ width: 14, flex: 'none' }} />
                         )}
                         <b style={{ color: cor, flex: 'none' }}>{LETRA(i)})</b>
-                        <span style={{ flex: 1 }}>{texto}</span>
+                        <TextoGrifavel
+                          texto={texto}
+                          campo={`alt-${i}`}
+                          grifos={grifosDaQuestao}
+                          onMudar={mudarGrifos}
+                          style={{ flex: 1 }}
+                        />
                         {rotulo && (
                           <span style={{ fontSize: 11, fontWeight: 700, color: cor, flex: 'none', textAlign: 'right' }}>
                             {rotulo}

@@ -32,7 +32,9 @@ src/
 │   ├── Cronometro.jsx       # Contagem regressiva hh:mm:ss da barra do simulado
 │   ├── BotaoGoogle.jsx      # "Fazer login com o Google" (Login)
 │   ├── PassosDaFicha.jsx    # Os 4 passos da ficha de boas-vindas e o resumo das respostas
-│   └── MeuPerfilDeEstudo.jsx  # Configurações: ver e editar a ficha (usa PassosDaFicha)
+│   ├── MeuPerfilDeEstudo.jsx  # Configurações: ver e editar a ficha (usa PassosDaFicha)
+│   ├── TextoGrifavel.tsx    # Texto com <mark> e seleção; mede offsets do Range
+│   └── BarraDeGrifo.tsx     # Barra flutuante (desktop) / fixa no rodapé (≤ 560px)
 └── lib/                  # Lógica sem tela; a maior parte roda no `node` (ver "Rodar e testar")
     ├── api/api.js        # Único cliente HTTP do gateway
     ├── api/paginas.js    # Laço de páginas e tradução array/envelope (puro, testado)
@@ -43,6 +45,7 @@ src/
     ├── cadernos.js       # Cadernos da tela de Questões: um por matéria, selos, misto
     ├── historico.js      # Mescla a carga do histórico com o que foi respondido durante ela
     ├── fila.js           # Envio um a um, que para quando a sessão acaba (respostas do simulado)
+    ├── grifos.js         # Marca-texto: trechos sem sobreposição, acrescentar, apagar, normalizar
     ├── storage.js        # localStorage: estado da interface e dados por conta
     ├── metrics.js        # Meta diária, sequência, taxas, evolução, estatísticas
     ├── revisao.js        # O que está errado / marcado, refeitas do dia e agrupamento por disciplina
@@ -227,6 +230,16 @@ acervo todo (há um e2e para isso).
   edital mudar, as duas tabelas mudam juntas; o teste `misto.test.js` confere
   20 matérias somando 80.
 
+**Marca-texto.** O enunciado e o texto das alternativas são `TextoGrifavel`
+(`components/ui/`): selecionar abre a barra com âmbar, sálvia, lavanda e
+"Apagar"; clicar num grifo existente abre só "Apagar". No desktop a barra flutua
+acima da seleção; em ≤ 560px vira uma faixa fixa no rodapé. O grifo é guardado
+em offsets do texto puro do campo (`campo` = `enunciado` | `alt-N`), com o mais
+novo vencendo na sobreposição (`lib/grifos.js`, puro e testado). Selecionar
+texto não marca a alternativa: o clique que termina a seleção é ignorado em
+`Questoes.jsx` e em `VerQuestao.tsx`. Grifo convive com a tesoura e não entra na
+correção.
+
 ### Simulados (layout "estilo LEGJUR")
 
 Quatro etapas num `useState` local da tela (`etapa`), nenhuma com URL:
@@ -377,8 +390,11 @@ fallback de `ABAS[0]` em `Revisoes.jsx`, e o antigo `favoritas` cai em
 `VerQuestao.tsx` (novo, em TypeScript) é o modal da questão: tema,
 procedência, posição, alternativas com gabarito e a resposta da última
 tentativa (com rótulos distintos quando são a mesma), `GabaritoComentado` e o
-`MotivoDoErro`. Navega pela lista visível, na disciplina da questão ou em
-todas; Esc e o fundo fecham, e o foco volta ao botão que abriu. O cabeçalho
+`MotivoDoErro`. O enunciado e o texto das alternativas usam o mesmo
+`TextoGrifavel` do quiz — os grifos são os mesmos, por `questaoId`, nos modos
+ler, refazer e resultado. O gabarito comentado não é grifável. Navega pela
+lista visível, na disciplina da questão ou em todas; Esc e o fundo fecham, e
+o foco volta ao botão que abriu. O cabeçalho
 traz a mesma bandeira do quiz; no fim do Refazer, se a questão acertada tinha
 marcador, aparece "Ela está marcada como X. Tirar o marcador?" com "Tirar" e
 "Manter" — nada sai sozinho.
@@ -510,8 +526,8 @@ tipos é o que fazia uma gravação que falhou divergir em silêncio do servidor
 
 | Tipo | Onde fica | Persistência | Conteúdo |
 |---|---|---|---|
-| Interface | `state` (`DEFAULT_STATE`) | localStorage (`ma-questoes-state-v1`) | tema, fase, tela atual, filtros de cada tela, quiz em andamento, questão discursiva aberta, estrelas antigas (`favoritos`, até migrarem), anotações, histórico de simulado, rascunhos discursivos |
-| Conta | cópia de quatro fatias de `state` | localStorage (`ma-questoes-conta-v1:<id>`), uma chave por conta | estrelas antigas (`favoritos`, só até a migração), anotações (só as notas), histórico de simulado e rascunhos discursivos (`segundaFase` sem a questão aberta) — ver "Dados da conta" |
+| Interface | `state` (`DEFAULT_STATE`) | localStorage (`ma-questoes-state-v1`) | tema, fase, tela atual, filtros de cada tela, quiz em andamento, questão discursiva aberta, estrelas antigas (`favoritos`, até migrarem), anotações, histórico de simulado, rascunhos discursivos e grifos do marca-texto |
+| Conta | cópia de cinco fatias de `state` | localStorage (`ma-questoes-conta-v1:<id>`), uma chave por conta | estrelas antigas (`favoritos`, só até a migração), anotações (só as notas), histórico de simulado, rascunhos discursivos (`segundaFase` sem a questão aberta) e grifos — ver "Dados da conta" |
 | Servidor | `useState` próprios | nenhuma — recarregados a cada sessão | `acervo`, `usuarioTentativas`, `marcadores`, `perfil`; na `SegundaFase`, a lista, a questão aberta e a última resposta, recarregadas a cada visita |
 | Sessão | `useState` próprio | deriva do token salvo (`ma-questoes-token-v1`) | `sessao` (`'ativa'` / `'ausente'`) |
 | Aviso | `useState` próprio | nenhuma | `erroSync`, a faixa de erro do topo |
@@ -539,6 +555,7 @@ const DEFAULT_STATE = {
   estatisticas: { range: '30d', disc: 'Todas' },
   disciplinas: { openNome: null },
   anotacoes: { folder: 'Todas', activeId: null, itens: [] },
+  grifos: {},  // { [questaoId]: [{ campo, inicio, fim, cor }] } — só neste navegador
   favoritos: [],  // estrelas antigas; viram marcador `refazer` na 1ª carga e a chave esvazia
   configuracoes: { meta: 20, dataProva: null },
   resultados_historico: [],  // histórico real dos simulados
@@ -570,11 +587,11 @@ Regras que o código já garante:
 
 ### Dados da conta
 
-Estrelas antigas (`favoritos`), anotações, histórico de simulado e rascunhos
-discursivos (`segundaFase.rascunhos`, texto ainda não conferido) não têm rota
-na API. Além de viverem em `state`, ficam numa chave por conta, gravada pelo
-mesmo efeito que grava o estado da interface (`salvarDadosDaConta`, em
-`storage.js`):
+Estrelas antigas (`favoritos`), anotações, histórico de simulado, rascunhos
+discursivos (`segundaFase.rascunhos`, texto ainda não conferido) e os grifos do
+marca-texto (`grifos`, `{ [questaoId]: Grifo[] }`) não têm rota na API. Além de
+viverem em `state`, ficam numa chave por conta, gravada pelo mesmo efeito que
+grava o estado da interface (`salvarDadosDaConta`, em `storage.js`):
 
 - **As estrelas antigas são temporárias:** na primeira carga em que
   `GET /api/marcadores` responde, `migrarEstrelas` grava `refazer` só nas
