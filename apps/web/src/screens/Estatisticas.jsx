@@ -1,4 +1,6 @@
 import { estatisticasDoPeriodo, formatarDuracao } from '../lib/metrics';
+import { KpiCard, Rosca } from '../components/ui/Metricas';
+import { TileDaMateria } from '../components/ui/Materia';
 
 // Esta tela era inteira uma vitrine. Os quatro cartões de cima liam
 //   const mult = { '7d': 0.25, '30d': 1, 'all': 3.4 }[range]
@@ -11,19 +13,6 @@ import { estatisticasDoPeriodo, formatarDuracao } from '../lib/metrics';
 // de verdade e só mostra comparação quando existe período anterior com dados.
 
 const PERIODOS = { '7d': 7, '30d': 30, all: null };
-
-function Delta({ valor, sufixo = '%', bom = 'positivo' }) {
-  if (valor == null) return <div style={{ fontSize: 11, color: '#6a665f', marginTop: 4 }}>sem período anterior para comparar</div>;
-
-  const positivo = valor >= 0;
-  const desejado = bom === 'positivo' ? positivo : !positivo;
-
-  return (
-    <div style={{ fontSize: 11, color: valor === 0 ? '#6a665f' : desejado ? '#4A7A4A' : '#B4413A', marginTop: 4 }}>
-      {positivo ? '+' : ''}{valor}{sufixo} vs. período anterior
-    </div>
-  );
-}
 
 export default function Estatisticas({ theme, s, data, filtros, setFiltros, usuarioTentativas, disciplinas }) {
   const questoes = data.QUESTOES || [];
@@ -53,11 +42,14 @@ export default function Estatisticas({ theme, s, data, filtros, setFiltros, usua
     .slice(0, 8);
   const maiorVolume = Math.max(1, ...porDisciplina.map((d) => d.tentativas));
 
+  // Variação contra o período anterior de mesmo tamanho; `null` quando não há
+  // período anterior com dados, e aí o cartão cala em vez de inventar "+100%".
+  const comparado = dias != null ? `vs os ${dias} dias anteriores` : 'desde o início';
   const metrics = [
-    { label: 'Respostas registradas', value: est.tentativas.toLocaleString('pt-BR'), delta: est.delta.tentativas, sufixo: '%' },
-    { label: 'Taxa de acertos', value: est.pct != null ? `${est.pct}%` : '—', delta: est.delta.pct, sufixo: 'pp' },
-    { label: 'Tempo respondendo', value: formatarDuracao(est.tempoTotalSeg) || '—', delta: est.delta.tempoTotalSeg, sufixo: '%' },
-    { label: 'Dias ativos', value: est.diasAtivos, delta: est.delta.diasAtivos, sufixo: '%' },
+    { label: 'Respostas registradas', value: est.tentativas.toLocaleString('pt-BR'), variacao: est.delta.tentativas != null ? { valor: est.delta.tentativas } : null },
+    { label: 'Taxa de acertos', value: est.pct != null ? `${est.pct}%` : '—', variacao: est.delta.pct != null ? { valor: est.delta.pct, texto: `${est.delta.pct >= 0 ? '+' : '−'}${Math.abs(est.delta.pct)} pp` } : null },
+    { label: 'Tempo respondendo', value: formatarDuracao(est.tempoTotalSeg) || '—', variacao: est.delta.tempoTotalSeg != null ? { valor: est.delta.tempoTotalSeg } : null },
+    { label: 'Dias ativos', value: est.diasAtivos, variacao: est.delta.diasAtivos != null ? { valor: est.delta.diasAtivos } : null },
   ];
 
   const seletor = { fontSize: 13, border: '1px solid rgba(0,0,0,.1)', borderRadius: 9, padding: '8px 12px', color: '#1c1b19', background: '#fff', minWidth: 200 };
@@ -80,18 +72,14 @@ export default function Estatisticas({ theme, s, data, filtros, setFiltros, usua
           </select>
         </div>
         <div style={{ fontSize: 11.5, color: '#6a665f', marginLeft: 'auto', maxWidth: 320, lineHeight: 1.5 }}>
-          Tudo nesta tela conta apenas as respostas que você registrou — o
+          Tudo nesta tela conta apenas as respostas que você registrou. O
           tempo é o que passou entre a questão abrir e a alternativa ser clicada.
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-        {metrics.map((m, i) => (
-          <div key={i} style={s.card}>
-            <div style={s.statLabel}>{m.label}</div>
-            <div style={{ ...s.statNum, marginTop: 6 }}>{m.value}</div>
-            <Delta valor={m.delta} sufixo={m.sufixo} />
-          </div>
+      <div className="grade-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+        {metrics.map((m) => (
+          <KpiCard key={m.label} rotulo={m.label} valor={m.value} variacao={m.variacao} contexto={m.variacao ? comparado : 'sem período anterior para comparar'} />
         ))}
       </div>
 
@@ -109,23 +97,16 @@ export default function Estatisticas({ theme, s, data, filtros, setFiltros, usua
           <div style={{ fontSize: 12, color: '#6a665f', marginTop: 4 }}>
             Questões distintas que você já respondeu ao menos uma vez.
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 16 }}>
-            <div style={{ width: 100, height: 100, borderRadius: '50%', background: `conic-gradient(${theme.primary} 0% ${coberturaPct}%, #eeebe5 ${coberturaPct}% 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-              <div style={{ width: 74, height: 74, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 17, fontWeight: 700 }}>{coberturaPct}%</div>
-                <div style={{ fontSize: 9, color: '#6a665f' }}>do acervo</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
-              <div>
-                <div style={{ color: '#6a665f' }}>Respondidas</div>
-                <div style={{ fontWeight: 700, color: '#1c1b19' }}>{respondidasNoAcervo} questões</div>
-              </div>
-              <div>
-                <div style={{ color: '#6a665f' }}>No acervo{disciplinaFiltro ? ` (${disciplinaFiltro})` : ''}</div>
-                <div style={{ fontWeight: 700, color: '#1c1b19' }}>{acervoFiltrado.length} questões</div>
-              </div>
-            </div>
+          <div style={{ marginTop: 16 }}>
+            <Rosca
+              fatias={[
+                { rotulo: 'Respondidas', valor: respondidasNoAcervo, cor: theme.primary },
+                { rotulo: 'Ainda não', valor: Math.max(0, acervoFiltrado.length - respondidasNoAcervo), cor: '#d9d5cc' },
+              ]}
+              centro={`${coberturaPct}%`}
+              rotuloCentral="do acervo"
+              descricao={`Você respondeu ${respondidasNoAcervo} de ${acervoFiltrado.length} questões do acervo${disciplinaFiltro ? ` de ${disciplinaFiltro}` : ''}`}
+            />
           </div>
         </div>
 
@@ -136,7 +117,7 @@ export default function Estatisticas({ theme, s, data, filtros, setFiltros, usua
               {porDisciplina.map((d) => (
                 <div key={d.nome}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                    <span style={{ color: '#1c1b19', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '72%' }}>{d.nome}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1c1b19', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '78%' }}><TileDaMateria materia={d.nome} tamanho={22} />{d.nome}</span>
                     <span style={{ color: '#6a665f' }}>{d.tentativas}</span>
                   </div>
                   <div style={{ ...s.progressTrack, marginTop: 5 }}>

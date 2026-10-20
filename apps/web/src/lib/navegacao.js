@@ -12,7 +12,8 @@ export const NAV = [
   { key: 'revisoes', icon: 'repeat', label: 'Revisões' },
   { key: 'desempenho', icon: 'trending-up', label: 'Desempenho' },
   { key: 'estatisticas', icon: 'chart-column', label: 'Estatísticas' },
-  { key: 'favoritos', icon: 'star', label: 'Favoritos' },
+  // A chave segue 'favoritos' (estado salvo e testes); a tela é a dos marcadores.
+  { key: 'favoritos', icon: 'flag', label: 'Marcadores' },
   { key: 'disciplinas', icon: 'library', label: 'Disciplinas' },
   { key: 'anotacoes', icon: 'notebook-pen', label: 'Anotações' },
   { key: 'configuracoes', icon: 'settings', label: 'Configurações' },
@@ -49,7 +50,7 @@ export const PAGE_META = {
   revisoes: { title: 'Revisões', sub: 'O que você errou e o que marcou para rever.' },
   desempenho: { title: 'Desempenho', sub: 'Acompanhe sua evolução ao longo do tempo.' },
   estatisticas: { title: 'Estatísticas', sub: 'Números detalhados do seu estudo.' },
-  favoritos: { title: 'Favoritos', sub: 'Questões que você marcou como favoritas.' },
+  favoritos: { title: 'Marcadores', sub: 'As questões que você marcou para voltar, com o motivo de cada uma.' },
   disciplinas: { title: 'Disciplinas', sub: 'Seu aproveitamento em cada matéria do acervo.' },
   anotacoes: { title: 'Anotações', sub: 'Seus resumos e ideias, guardados neste navegador.' },
   configuracoes: { title: 'Configurações', sub: 'Preferências da sua conta.' },

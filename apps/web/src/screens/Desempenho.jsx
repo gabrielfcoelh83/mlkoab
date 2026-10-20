@@ -1,6 +1,8 @@
-import { AreaLine, LabeledBars } from '../lib/charts';
+import { LabeledBars } from '../lib/charts';
+import { KpiCard, GraficoArea, GraficoBarras, CartaoDeGrafico } from '../components/ui/Metricas';
+import { TileDaMateria } from '../components/ui/Materia';
 import { Icon } from '../lib/icons';
-import { evolucaoGeral, tempoPorDisciplina, formatarDuracao } from '../lib/metrics';
+import { tempoPorDisciplina, formatarDuracao, seriesSemanais } from '../lib/metrics';
 
 // A série de evolução era esta constante, igual para todo mundo:
 //   const SERIES = { '7': [60, 66, 63, 70, 68, 74, 73], ... }
@@ -34,28 +36,30 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
   const taxaGeral = totalTentativas > 0 ? Math.round((totalAcertos / totalTentativas) * 100) : null;
 
   const semanas = SEMANAS[perf.period] || 6;
-  const evolucao = evolucaoGeral(tentativas, semanas);
-  const pontos = evolucao.filter((e) => e.pct != null);
+  const serie = seriesSemanais(tentativas, semanas);
+  const pontos = serie.filter((e) => e.taxa != null);
+  const taxas = pontos.map((e) => e.taxa);
+  const ultima = pontos[pontos.length - 1] || null;
+  const penultima = pontos[pontos.length - 2] || null;
+  const noPeriodo = serie.reduce((t, e) => t + e.total, 0);
+  const porNivel = [1, 2, 3, 4].map((n) => lista.filter((d) => d.classificada !== false && d.nivel === n).length);
 
   const tempos = tempoPorDisciplina(tentativas, questoes).slice(0, 7);
 
-  const stats = [
-    { label: 'Taxa de acertos geral', value: taxaGeral != null ? `${taxaGeral}%` : '—', color: theme.primary, sub: totalTentativas > 0 ? `${totalAcertos} de ${totalTentativas} respostas` : 'sem respostas ainda' },
-    { label: 'Disciplinas praticadas', value: `${comAtividade.length}`, color: '#1c1b19', sub: `de ${lista.length} no acervo` },
-    { label: 'Disciplinas dominadas', value: dominadas.length, color: '#4A7A4A', sub: '80% de acerto ou mais' },
-    { label: 'Precisam de reforço', value: fracas.length, color: '#B4413A', sub: 'abaixo de 50%' },
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-        {stats.map((st, i) => (
-          <div key={i} style={s.card}>
-            <div style={s.statLabel}>{st.label}</div>
-            <div style={{ ...s.statNum, marginTop: 6, color: st.color }}>{st.value}</div>
-            <div style={{ ...s.statLabel, marginTop: 2 }}>{st.sub}</div>
-          </div>
-        ))}
+      <div className="grade-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+        <KpiCard
+          rotulo="Taxa de acertos geral"
+          valor={taxaGeral != null ? `${taxaGeral}%` : '—'}
+          variacao={ultima && penultima ? { valor: ultima.taxa - penultima.taxa, texto: `${ultima.taxa - penultima.taxa >= 0 ? '+' : '−'}${Math.abs(ultima.taxa - penultima.taxa)} pp` } : null}
+          contexto={totalTentativas > 0 ? `${totalAcertos} de ${totalTentativas} respostas` : 'sem respostas ainda'}
+          curva={taxas.length >= 2 ? taxas : undefined}
+          corDaCurva={theme.primary}
+        />
+        <KpiCard rotulo={`Respondidas em ${semanas} semanas`} valor={noPeriodo} contexto={`${comAtividade.length} de ${lista.length} matérias praticadas`} curva={serie.map((e) => e.total)} />
+        <KpiCard rotulo="Matérias em Domínio" valor={porNivel[3]} contexto="80% de acerto ou mais, com 10 respostas" />
+        <KpiCard rotulo="Matérias em Base" valor={porNivel[1]} contexto={`abaixo de 50% · ${porNivel[0]} ainda iniciando`} />
       </div>
 
       {fracas.length > 0 && (
@@ -67,14 +71,14 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
                 style={s.btnOutline}
                 onClick={() => revisarQuestoes(revisao.errei.map((x) => x.questao))}
               >
-                Revisar as {revisao.errei.length} que errei
+                Revisar as {revisao.errei.length} erradas
               </button>
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
             {fracas.sort((a, b) => a.pct - b.pct).map((d) => (
               <div key={d.nome} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.cor, flex: 'none' }} />
+                <TileDaMateria materia={d.nome} tamanho={26} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: '#1c1b19', fontWeight: 500 }}>{d.nome}</span>
@@ -102,13 +106,16 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
         </div>
       )}
 
-      <div style={s.card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={s.sectionTitle}>Evolução da taxa de acertos</h2>
-          <div style={{ display: 'flex', gap: 6 }}>
+      <CartaoDeGrafico
+        titulo="Evolução semana a semana"
+        sub="Respondidas e acertos em janelas de 7 dias, terminando hoje."
+        acoes={(
+          <div role="radiogroup" aria-label="Período" style={{ display: 'flex', gap: 6 }}>
             {Object.keys(SEMANAS).map((p) => (
               <button
                 key={p}
+                role="radio"
+                aria-checked={perf.period === p}
                 onClick={() => setPerf({ period: p })}
                 style={{ background: perf.period === p ? theme.primarySoft : 'transparent', color: perf.period === p ? theme.primaryDark : '#6a665f', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600 }}
               >
@@ -116,30 +123,31 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
               </button>
             ))}
           </div>
-        </div>
-        {pontos.length >= 2 ? (
-          <>
-            <div style={{ marginTop: 16 }}>
-              <AreaLine
-                points={evolucao.map((e) => e.pct)}
-                labels={evolucao.map((e) => (e.total ? `${e.rotulo} · ${e.total} ${e.total === 1 ? 'questão' : 'questões'}` : e.rotulo))}
-                color={theme.primary}
-              />
-            </div>
-            {/* Recuos iguais às margens do gráfico, para os rótulos caírem sob o primeiro e o último ponto. */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6a665f', marginTop: 6, padding: '0 40px 0 34px' }}>
-              <span style={{ transform: 'translateX(-50%)' }}>{evolucao[0].rotulo}</span>
-              <span style={{ transform: 'translateX(50%)' }}>{evolucao[evolucao.length - 1].rotulo}</span>
-            </div>
-          </>
-        ) : (
-          <Vazio>
-            {pontos.length === 1
-              ? `Uma semana com atividade (${pontos[0].pct}% de acerto). O gráfico aparece quando houver uma segunda — comparar precisa de dois pontos.`
-              : 'Nenhuma resposta registrada nas últimas semanas. Responda questões para o gráfico começar a existir.'}
-          </Vazio>
         )}
-      </div>
+      >
+        {noPeriodo > 0 ? (
+          <div className="grade-graficos" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 20, alignItems: 'end' }}>
+            <GraficoArea
+              rotulos={serie.map((e) => e.rotulo)}
+              series={[
+                { rotulo: 'Respondidas', valores: serie.map((e) => e.total), cor: '#1c1b19' },
+                { rotulo: 'Acertos', valores: serie.map((e) => e.acertos), cor: theme.primary },
+              ]}
+              descricao={`Respondidas e acertos por semana nas últimas ${semanas} semanas: ${noPeriodo} respondidas no total`}
+            />
+            <GraficoBarras
+              rotulos={serie.slice(-6).map((e) => e.rotulo)}
+              series={[
+                { rotulo: 'Acertos', valores: serie.slice(-6).map((e) => e.acertos), cor: '#4A7A4A' },
+                { rotulo: 'Erros', valores: serie.slice(-6).map((e) => e.erros), cor: '#B4413A' },
+              ]}
+              descricao="Acertos e erros nas últimas 6 semanas"
+            />
+          </div>
+        ) : (
+          <Vazio>Nenhuma resposta registrada nas últimas semanas. Responda questões para o gráfico começar a existir.</Vazio>
+        )}
+      </CartaoDeGrafico>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
         <div style={s.card}>

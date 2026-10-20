@@ -498,7 +498,7 @@ test.describe('Acervo vindo do servidor', () => {
     await alternativas.nth(casada.gabarito).click();
     await finalizarQuiz(page);
     await verCorrecao(page, 0);
-    await expect(page.locator('[data-testid="veredito"]')).toHaveText(/Acertou!/);
+    await expect(page.locator('[data-testid="veredito"]')).toHaveText(/Acertou./);
   });
 
   test('explicação da IA aparece assinada pelo assistente', async ({ page }) => {
@@ -2107,7 +2107,7 @@ test.describe('Card de questão', () => {
     expect(posts).toHaveLength(0);
     await finalizarQuiz(page);
     await verCorrecao(page, 0);
-    await expect(page.locator('[data-testid="veredito"]')).toHaveText('Acertou!');
+    await expect(page.locator('[data-testid="veredito"]')).toHaveText('Acertou.');
     await expect.poll(() => posts.length).toBe(1);
     expect(posts[0]).toMatchObject({ questao_id: '9301', alternativa: 1, correta: true });
 

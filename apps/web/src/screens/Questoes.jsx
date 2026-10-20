@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Icon } from '../lib/icons';
+import { TileDaMateria, LadoNivel } from '../components/ui/Materia';
+import { areaDaMateria } from '../lib/areas';
 import { montarFontes } from '../lib/questions/acervo';
 import { montarCadernos } from '../lib/cadernos';
 import { metaDiaria } from '../lib/metrics';
@@ -70,13 +72,32 @@ const SELOS = {
 
 // Um caderno: card com a lombada na cor da matéria (a mesma das outras telas,
 // `corDaDisciplina`), selo, dois números e a ação de estudar.
-function CadernoCard({ theme, s, testid, cor, selo, canto, titulo, descricao, dados, rodape, acao, onClick }) {
+// O caderno tem a identidade da matéria em todas as telas: ladrilho com o
+// ícone dela na cor da área, nível em quatro degraus e o que falta para subir.
+// A borda esquerda colorida de 5px que marcava a matéria saiu: o ladrilho já
+// diz a cor sem pesar o cartão.
+function CadernoCard({ theme, s, testid, cor, materia, nivel, proximo, selo, canto, titulo, descricao, dados, rodape, acao, onClick }) {
   return (
     <article
       data-testid={testid}
-      style={{ ...s.card, borderLeft: `5px solid ${cor}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16, minHeight: 200 }}
+      style={{ ...s.card, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16, minHeight: 200 }}
     >
       <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          {materia
+            ? <TileDaMateria materia={materia} tamanho={40} />
+            : (
+              <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, background: `${cor}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <Icon name="layers" color={cor} size={20} />
+              </span>
+            )}
+          <div style={{ minWidth: 0 }}>
+            {materia && <div style={{ fontSize: 11.5, color: '#6a665f' }}>{areaDaMateria(materia)?.nome || 'Outras'}</div>}
+            {nivel != null && (
+              <div title={proximo || undefined} style={{ marginTop: 2 }}><LadoNivel nivel={nivel} cor={cor} comRotulo /></div>
+            )}
+          </div>
+        </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, minHeight: 22 }}>
           {selo ? (
             <span style={{ ...s.pill(`${selo.cor || theme.primary}14`, selo.cor || theme.primaryDark), whiteSpace: 'nowrap' }}>
@@ -560,6 +581,9 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                     s={s}
                     testid={`caderno-${m.nome}`}
                     cor={m.cor}
+                    materia={m.nome}
+                    nivel={m.nivel}
+                    proximo={m.proximo}
                     selo={SELOS[m.selo]}
                     canto={m.pct != null
                       ? `${m.pct}% acertos`
@@ -570,7 +594,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                       ['Peso na prova', m.peso != null ? `${m.peso} questões` : '—'],
                       ['Disponíveis', `${m.disponiveis} ${m.disponiveis === 1 ? 'questão' : 'questões'}`],
                     ]}
-                    rodape={`${m.nuncaRespondidas} nunca respondidas`}
+                    rodape={m.proximo || `${m.nuncaRespondidas} nunca respondidas`}
                     acao="Estudar"
                     onClick={() => iniciarCaderno(m.nome)}
                   />
@@ -757,7 +781,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
               return (
                 <div data-testid="veredito" className="entra" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18, fontSize: 15, fontWeight: 700, color: cor }}>
                   <Icon name={tipo === 'certa' ? 'circle-check' : tipo === 'errada' ? 'circle-x' : 'clock'} color={cor} size={20} />
-                  {tipo === 'certa' ? 'Acertou!' : tipo === 'errada' ? 'Errou' : 'Em branco'}
+                  {tipo === 'certa' ? 'Acertou.' : tipo === 'errada' ? 'Errou' : 'Em branco'}
                   {tipo !== 'certa' && (
                     <span style={{ fontSize: 13, fontWeight: 500, color: '#5f5b55' }}>· gabarito: alternativa {letra(current.correta)}</span>
                   )}
