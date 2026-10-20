@@ -110,6 +110,64 @@ describe('gateway downstream behavior', () => {
     const config = adapter.mock.calls[0][0];
     expect(config.params).toEqual({ paginado: '1', limite: '10', offset: '20' });
   });
+
+  test('routes marcadores list to the estudo service with the query string', async () => {
+    const response = await request(app)
+      .get('/api/marcadores?tipo=chute')
+      .set('Authorization', 'Bearer t');
+
+    expect(response.status).toBe(200);
+    const config = adapter.mock.calls[0][0];
+    expect(config.url).toMatch(/\/marcadores$/);
+    expect(config.params).toEqual({ tipo: 'chute' });
+    expect(config.headers.get('authorization')).toBe('Bearer t');
+  });
+
+  test('routes marcador PUT to the estudo service with the id in the path', async () => {
+    const response = await request(app)
+      .put('/api/marcadores/q-1')
+      .set('Authorization', 'Bearer t')
+      .send({ tipo: 'chute', nota: 'chutei' });
+
+    expect(response.status).toBe(200);
+    const config = adapter.mock.calls[0][0];
+    expect(config.method).toBe('put');
+    expect(config.url).toMatch(/\/marcadores\/q-1$/);
+    expect(JSON.parse(config.data)).toEqual({ tipo: 'chute', nota: 'chutei' });
+    expect(config.headers.get('authorization')).toBe('Bearer t');
+  });
+
+  test('routes marcador DELETE to the estudo service and preserves 204', async () => {
+    adapter.mockImplementationOnce(async (config) => ({
+      data: '', status: 204, statusText: 'No Content', headers: {}, config,
+    }));
+
+    const response = await request(app)
+      .delete('/api/marcadores/q-1')
+      .set('Authorization', 'Bearer t');
+
+    expect(response.status).toBe(204);
+    const config = adapter.mock.calls[0][0];
+    expect(config.method).toBe('delete');
+    expect(config.url).toMatch(/\/marcadores\/q-1$/);
+    expect(config.headers.get('authorization')).toBe('Bearer t');
+  });
+
+  test('preserves downstream error status when saving a marcador', async () => {
+    const error = new axios.AxiosError('bad request', 'ERR_BAD_REQUEST', {}, {}, {
+      status: 400,
+      data: { error: 'tipo deve ser um de: chute, nao_sabia, refazer, duvida' },
+    });
+    adapter.mockRejectedValueOnce(error);
+
+    const response = await request(app)
+      .put('/api/marcadores/q-1')
+      .set('Authorization', 'Bearer t')
+      .send({ tipo: 'outro' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'tipo deve ser um de: chute, nao_sabia, refazer, duvida' });
+  });
 });
 
 describe('gateway: Google Agenda', () => {

@@ -36,6 +36,8 @@ export default defineConfig({
       // mostraria "o acervo não carregou" com o backend inteiro no ar.
       '/api/auth': GATEWAY,
       '/api/tentativas': GATEWAY,
+      // Marcadores das questões (chute, não sabia, refazer, dúvida).
+      '/api/marcadores': GATEWAY,
       '/api/questoes': GATEWAY,
       // `/api/users` entrou junto com o perfil real (nome, e-mail, meta, data
       // da prova). Esquecer esta linha não quebra nada visível: o pedido cai

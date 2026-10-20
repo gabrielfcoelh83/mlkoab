@@ -298,6 +298,58 @@ app.patch('/api/tentativas/:id', async (req, res) => {
   }
 });
 
+// Marcadores das questões (chute, não sabia, refazer, dúvida). O PUT substitui
+// o marcador do par usuário/questão; o DELETE é idempotente e responde 204.
+app.get('/api/marcadores', async (req, res) => {
+  try {
+    const response = await downstream('estudo', 'get', `${services.estudo}/marcadores`, {
+      headers: { authorization: req.headers.authorization },
+      params: req.query, // tipo
+    });
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Erro ao buscar marcadores',
+    });
+  }
+});
+
+app.put('/api/marcadores/:questaoId', async (req, res) => {
+  try {
+    const response = await downstream(
+      'estudo',
+      'put',
+      `${services.estudo}/marcadores/${encodeURIComponent(req.params.questaoId)}`,
+      req.body,
+      { headers: { authorization: req.headers.authorization } }
+    );
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Erro ao salvar marcador',
+    });
+  }
+});
+
+app.delete('/api/marcadores/:questaoId', async (req, res) => {
+  try {
+    const response = await downstream(
+      'estudo',
+      'delete',
+      `${services.estudo}/marcadores/${encodeURIComponent(req.params.questaoId)}`,
+      { headers: { authorization: req.headers.authorization } }
+    );
+    // 204 não tem corpo: chamar .json('') responderia um JSON vazio e
+    // mudaria o status que o serviço devolveu.
+    if (response.status === 204) return res.status(204).end();
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Erro ao apagar marcador',
+    });
+  }
+});
+
 // Simulados de prova real. Abrir, finalizar e abandonar são POST e, como todo
 // POST aqui, não têm retry: repetir "finalizar" depois de um timeout que na
 // verdade gravou responderia 409 a quem já tinha terminado.
