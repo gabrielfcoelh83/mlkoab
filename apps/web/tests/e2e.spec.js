@@ -2272,6 +2272,77 @@ test.describe('Card de questão', () => {
     await botao.click();
     await expect(page.locator('[data-testid="historico-da-questao"]')).toHaveCount(0);
   });
+
+  // Monta um Range de verdade no texto do campo. A seleção do Playwright
+  // (page.selectText) não abre a barra: ela não passa pelo mouseup que o
+  // componente escuta.
+  async function selecionarTrecho(page, seletor, inicio, fim) {
+    await page.evaluate(({ seletor: alvo, inicio: de, fim: ate }) => {
+      const raiz = document.querySelector(alvo);
+      if (!raiz) throw new Error(`campo não encontrado: ${alvo}`);
+
+      const nos = [];
+      const caminhante = document.createTreeWalker(raiz, window.NodeFilter.SHOW_TEXT);
+      let total = 0;
+      let no = caminhante.nextNode();
+      while (no) {
+        const tamanho = no.textContent?.length || 0;
+        nos.push({ no, inicio: total, fim: total + tamanho });
+        total += tamanho;
+        no = caminhante.nextNode();
+      }
+
+      const ponto = (deslocamento) => {
+        const achado = nos.find((item) => deslocamento <= item.fim) || nos[nos.length - 1];
+        return [achado.no, Math.max(0, deslocamento - achado.inicio)];
+      };
+
+      const [noInicio, deslocInicio] = ponto(de);
+      const [noFim, deslocFim] = ponto(ate);
+      const intervalo = document.createRange();
+      intervalo.setStart(noInicio, deslocInicio);
+      intervalo.setEnd(noFim, deslocFim);
+      const selecao = window.getSelection();
+      selecao.removeAllRanges();
+      selecao.addRange(intervalo);
+      raiz.dispatchEvent(new window.MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    }, { seletor, inicio, fim });
+  }
+
+  test('grifo do enunciado sobrevive ao recarregar e não marca a alternativa', async ({ page }) => {
+    await simularServidor(page);
+    await entrar(page);
+    await abrirQuiz(page);
+
+    // "Questão" é o começo do enunciado, dentro de um único nó de texto.
+    await selecionarTrecho(page, '[data-testid="enunciado"] [data-grifavel="enunciado"]', 0, 7);
+    const barra = page.locator('[data-testid="barra-de-grifo"]');
+    await expect(barra).toBeVisible();
+    await expect(barra).toHaveAttribute('data-modo', 'criar');
+    await page.click('[data-testid="grifar-ambar"]');
+
+    const grifo = page.locator('[data-testid="enunciado"] mark[data-grifo-cor="ambar"]');
+    await expect(grifo).toHaveText('Questão');
+    await expect(barra).toHaveCount(0);
+
+    // O grifo fica na chave da conta, não no estado da questão: recarregar
+    // (que mantém o quiz em andamento) tem de trazê-lo de volta.
+    await page.reload();
+    await expect(page.locator('[data-testid="enunciado"]')).toBeVisible();
+    await expect(page.locator('[data-testid="enunciado"] mark[data-grifo-cor="ambar"]')).toHaveText('Questão');
+
+    // Selecionar dentro de uma alternativa e clicar nela (o clique que
+    // termina a seleção) não pode marcar a resposta. O evento é disparado
+    // sem colapsar a seleção, que é o que o clique real faz.
+    await selecionarTrecho(page, '[data-testid="alt-1"] [data-grifavel="alt-1"]', 0, 5);
+    await expect(barra).toBeVisible();
+    await page.evaluate(() => {
+      document.querySelector('[data-testid="alt-1"]')
+        .dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await expect(page.locator('[data-testid="alt-1"]')).toHaveAttribute('data-marcada', 'nao');
+    await expect(page.locator('[data-testid="alt-1"]')).toHaveAttribute('aria-checked', 'false');
+  });
 });
 
 // ---------------------------------------------------------------------------
