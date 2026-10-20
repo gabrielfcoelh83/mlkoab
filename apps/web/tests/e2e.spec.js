@@ -1954,6 +1954,38 @@ test.describe('Card de questão', () => {
     await expect(page.locator('[data-testid="gabarito-comentado-texto"]')).toBeVisible();
   });
 
+  // No simulado a alternativa é um <button> e a tesoura fica ao lado: o clique
+  // nela não pode marcar resposta nem mexer no contador de respondidas.
+  test('no simulado, riscar não responde e a riscada continua respondível', async ({ page }) => {
+    const posts = await simularServidor(page);
+    await entrar(page);
+    await page.click('[data-testid="nav-simulados"]');
+    await page.click('[data-testid="novo-simulado"]');
+    await page.click('[data-testid="iniciar-simulado"]');
+
+    const q0 = page.locator('[data-testid="sim-q-0"]');
+    const tesoura = q0.locator('[data-testid="riscar-1"]');
+    const alternativaB = q0.locator('[data-testid="alt-1"]');
+    const contador = page.locator('[data-testid="contador-respondidas"]');
+    await expect(contador).toContainText('0/1');
+
+    await tesoura.click();
+    await expect(tesoura).toHaveAttribute('aria-pressed', 'true');
+    await expect(alternativaB.locator('[data-riscada]')).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(alternativaB).toHaveAttribute('aria-checked', 'false');
+    await expect(contador).toContainText('0/1');
+
+    await tesoura.click();
+    await expect(tesoura).toHaveAttribute('aria-pressed', 'false');
+    await expect(alternativaB.locator('[data-riscada]')).toHaveAttribute('data-riscada', 'nao');
+
+    await tesoura.click();
+    await alternativaB.click();
+    await expect(alternativaB).toHaveAttribute('aria-checked', 'true');
+    await expect(contador).toContainText('1/1');
+    expect(posts).toHaveLength(0);
+  });
+
   // O risco não persiste: é da questão na tela. E trocar de questão com o
   // gabarito comentado aberto já deixou o card anterior no DOM (duas `key`
   // iguais entre irmãos) — o quiz mostrava duas questões ao mesmo tempo.
