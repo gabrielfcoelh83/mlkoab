@@ -1,6 +1,8 @@
 import { Icon } from '../lib/icons';
 import { temasDaDisciplina } from '../lib/disciplinas';
-import { iconeDaMateria } from '../lib/areas';
+import { AREAS, iconeDaMateria, RESPOSTAS_PARA_MEDIR } from '../lib/areas';
+import { TileDaMateria, LadoNivel } from '../components/ui/Materia';
+import ColunasDaProva from '../components/ui/ColunasDaProva';
 
 // A lista era fixa: oito matérias com "35h 20m estudadas" e "85% de
 // aproveitamento" escritos no código. Abrir uma delas mostrava cinco tópicos
@@ -11,21 +13,13 @@ import { iconeDaMateria } from '../lib/areas';
 // Agora: as disciplinas são as do acervo, os temas são os que a classificação
 // atribuiu a cada questão, e os percentuais são as suas respostas.
 
-const STATUS = {
-  domina: { label: 'Domina', color: '#355E35', bg: '#E4EEE1' },
-  'em-desenvolvimento': { label: 'Em desenvolvimento', color: '#94661A', bg: '#F5EEDC' },
-  necessita: { label: 'Precisa reforço', color: '#8F2F29', bg: '#F6E4E1' },
-  novo: { label: 'Não iniciada', color: '#4f4b45', bg: '#f1efea' },
-};
 
-// Botões do card no layout LEGJUR: "Iniciar Simulado" abre o formulário do
-// simulado com a matéria já escolhida; "Praticar" abre o quiz dela, a um
-// clique como sempre foi; o nome (ou "Ver temas") abre os temas. Questão
-// ainda sem disciplina forma o card "Sem classificação", que não tem simulado
-// (o filtro do simulado é por disciplina) — ali o botão principal é o quiz.
-export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas, usuarioTentativas, praticarDisciplina, revisarQuestoes, simularDisciplina, go }) {
+// Três blocos: "Foco agora" (onde se perde mais ponto), o mapa da prova em
+// colunas e a lista por área, recolhível, com uma linha curta por matéria.
+// O simulado por matéria saiu: simulado simula a prova inteira. Treinar uma
+// matéria é o "Praticar" daqui ou o caderno em Questões.
+export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas, usuarioTentativas, praticarDisciplina, revisarQuestoes }) {
   const lista = disciplinas || [];
-  const simular = (nome) => (simularDisciplina ? simularDisciplina(nome) : go && go('simulados'));
   const questoes = data.QUESTOES || [];
   const aberta = lista.find((d) => d.nome === disc.openNome) || null;
 
@@ -39,80 +33,120 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
       );
     }
 
+    // Foco agora: as matérias que mais custam na prova (peso × o que se erra).
+    // Sem nenhuma matéria medida, cai na que mais vale entre as não iniciadas.
+    const medidas = lista.filter((d) => d.perda != null && d.perda > 0).sort((x, y) => y.perda - x.perda);
+    const foco = (medidas.length > 0
+      ? medidas
+      : lista.filter((d) => d.peso != null).sort((x, y) => y.peso - x.peso)
+    ).slice(0, 3);
+
+    const grupos = [
+      ...AREAS.map((area) => ({ chave: area.chave, nome: area.nome, cor: area.cor, itens: lista.filter((d) => d.area === area.chave) })),
+      { chave: 'outras', nome: 'Outras', cor: '#6a665f', itens: lista.filter((d) => d.area == null) },
+    ].filter((g) => g.itens.length > 0);
+    const recolhidas = new Set(disc.recolhidas || []);
+    const alternar = (chave) => {
+      const proximas = new Set(recolhidas);
+      if (proximas.has(chave)) proximas.delete(chave); else proximas.add(chave);
+      setDisc({ recolhidas: [...proximas] });
+    };
+
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-        {lista.map((d) => {
-          const st = STATUS[d.status];
-          return (
-            <div key={d.nome} style={{ ...s.card, display: 'flex', flexDirection: 'column', gap: 12, padding: 22 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 10, background: `${d.cor}1e`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={iconeDaMateria(d.nome)} color={d.cor} size={26} />
-                </div>
-                <span style={s.pill(st.bg, st.color)}>{st.label}</span>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                  <div
-                    onClick={() => setDisc({ openNome: d.nome })}
-                    style={{ fontSize: 16, fontWeight: 700, color: '#1c1b19', cursor: 'pointer' }}
-                  >
-                    {d.nome}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <section style={s.card} data-testid="foco-agora">
+          <h2 style={s.sectionTitle}>Foco agora</h2>
+          <p style={{ ...s.pageSub, margin: '4px 0 14px' }}>
+            {medidas.length > 0
+              ? 'As matérias em que você mais deixa questões na prova, pelo que valem e pelo seu acerto.'
+              : 'Ainda sem acerto medido: comece pelas matérias que mais valem na prova.'}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {foco.map((d, i) => (
+              <div key={d.nome} style={{ border: '1px solid #eeebe5', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <TileDaMateria materia={d.nome} tamanho={34} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1c1b19' }}>{d.nome}</div>
+                    <div style={{ fontSize: 12, color: '#6a665f' }}>
+                      {d.perda != null ? `deixa cerca de ${String(d.perda).replace('.', ',')} de ${d.peso}` : `vale ${d.peso} na prova`}
+                    </div>
                   </div>
-                  <button
-                    data-testid="ver-temas"
-                    onClick={() => setDisc({ openNome: d.nome })}
-                    style={{ ...s.link, background: 'none', border: 'none', padding: 0, cursor: 'pointer', flex: 'none' }}
-                  >
-                    Ver temas ›
-                  </button>
                 </div>
-                <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 3 }}>
-                  {d.total} {d.total === 1 ? 'questão' : 'questões'} no acervo · {d.respondidas} já respondidas
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#4f4b45' }}>
+                  <LadoNivel nivel={d.nivel} cor={d.cor} comRotulo />
                 </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6a665f', marginBottom: 6 }}>
-                  <span>{d.pct != null ? 'Acerto' : 'Cobertura'}</span>
-                  <span style={{ fontWeight: 700, color: '#1c1b19' }}>
-                    {d.pct != null ? `${d.pct}%` : `${d.cobertura}%`}
-                  </span>
-                </div>
-                <div style={s.progressTrack}>
-                  <div style={{ width: `${d.pct != null ? d.pct : d.cobertura}%`, height: '100%', background: d.cor, borderRadius: 5 }} />
-                </div>
-                <div style={{ fontSize: 11, color: '#6a665f', marginTop: 6 }}>
-                  {d.pct != null
-                    ? `${d.acertos} acertos em ${d.tentativas} ${d.tentativas === 1 ? 'resposta' : 'respostas'}`
-                    : 'sem respostas ainda'}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                {d.classificada !== false && (
-                  <button
-                    data-testid="simular-disciplina"
-                    onClick={() => simular(d.nome)}
-                    style={{ flex: 1, padding: '10px 12px', background: '#fff', color: '#1c1b19', border: '1px solid #d6d1c8', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, whiteSpace: 'nowrap' }}
-                  >
-                    <Icon name="graduation-cap" color="#1c1b19" size={13} /> Iniciar simulado
-                  </button>
-                )}
+                <div style={{ fontSize: 12, color: '#6a665f', lineHeight: 1.45 }}>{d.proximo}</div>
                 <button
-                  data-testid="praticar-disciplina"
+                  data-testid={`foco-praticar-${i}`}
                   onClick={() => praticarDisciplina(d.nome)}
-                  style={d.classificada === false
-                    ? { flex: 1, padding: '10px 12px', background: '#fff', color: '#1c1b19', border: '1px solid #d6d1c8', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }
-                    : { padding: '10px 14px', background: '#fff', color: '#4f4b45', border: '1px solid #e6e2da', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                  style={i === 0 ? { ...s.btnPrimary, justifyContent: 'center', marginTop: 'auto' } : { ...s.btnOutline, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 'auto' }}
                 >
-                  <Icon name="play" color={d.classificada === false ? '#1c1b19' : '#4f4b45'} size={12} /> Praticar
+                  <Icon name="play" color={i === 0 ? '#fff' : '#1c1b19'} size={12} /> Praticar
                 </button>
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </section>
+
+        <section style={s.card} data-testid="mapa-da-prova">
+          <h2 style={s.sectionTitle}>Mapa da prova</h2>
+          <div style={{ marginTop: 6 }}>
+            <ColunasDaProva materias={lista} />
+          </div>
+        </section>
+
+        <section style={{ ...s.card, padding: '8px 0' }} data-testid="lista-disciplinas">
+          {grupos.map((g) => {
+            const aberto = !recolhidas.has(g.chave);
+            const peso = g.itens.reduce((t, d) => t + (d.peso || 0), 0);
+            return (
+              <div key={g.chave} style={{ borderTop: g === grupos[0] ? 'none' : '1px solid #eeebe5' }}>
+                <button
+                  type="button"
+                  aria-expanded={aberto}
+                  data-testid={`area-${g.chave}`}
+                  onClick={() => alternar(g.chave)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <i style={{ width: 9, height: 9, borderRadius: 2, background: g.cor, display: 'block', flex: 'none' }} />
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: '#1c1b19' }}>{g.nome}</span>
+                  <span style={{ fontSize: 12, color: '#6a665f' }}>
+                    {g.itens.length} {g.itens.length === 1 ? 'matéria' : 'matérias'}{peso > 0 ? ` · vale ${peso} na prova` : ''}
+                  </span>
+                  <Icon name="chevron-down" color="#6a665f" size={16} style={{ marginLeft: 'auto', transform: aberto ? 'none' : 'rotate(-90deg)', transition: 'transform 160ms var(--ease-out)' }} />
+                </button>
+                {aberto && g.itens.map((d) => (
+                  <div key={d.nome} className="linha-disciplina" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1.1fr) 64px 70px auto', gap: 12, alignItems: 'center', padding: '8px 20px' }}>
+                    <button
+                      data-testid="ver-temas"
+                      onClick={() => setDisc({ openNome: d.nome })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}
+                    >
+                      <TileDaMateria materia={d.nome} tamanho={28} />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1c1b19', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nome}</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: '#6a665f' }}>{d.respondidas} de {d.total} respondidas</span>
+                      </span>
+                    </button>
+                    <span title={d.proximo}><LadoNivel nivel={d.nivel} cor={d.cor} comRotulo /></span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: d.pct == null ? '#6a665f' : '#1c1b19', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                      {d.tentativas >= RESPOSTAS_PARA_MEDIR ? `${d.pct}%` : '—'}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#6a665f', textAlign: 'right' }}>{d.peso != null ? `vale ${d.peso}` : ''}</span>
+                    <button
+                      data-testid="praticar-disciplina"
+                      onClick={() => praticarDisciplina(d.nome)}
+                      style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 11px' }}
+                    >
+                      <Icon name="play" color="#1c1b19" size={11} /> Praticar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </section>
       </div>
     );
   }
@@ -138,15 +172,6 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {aberta.classificada !== false && (
-            <button
-              data-testid="simular-disciplina-aberta"
-              style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-              onClick={() => simular(aberta.nome)}
-            >
-              <Icon name="graduation-cap" color={theme.primary} size={14} /> Iniciar Simulado
-            </button>
-          )}
           <button style={s.btnPrimary} onClick={() => praticarDisciplina(aberta.nome)}>
             <Icon name="play" color="#fff" size={13} /> Praticar {aberta.nome.split(' ').slice(-1)[0]}
           </button>

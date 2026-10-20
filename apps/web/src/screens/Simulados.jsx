@@ -1,8 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../lib/icons';
-import { corrigirSimulado, respostasParaRegistrar, situacaoDaResposta, sortearQuestoes, tempoDeProvaMinutos } from '../lib/simulado';
+import { corrigirSimulado, respostasParaRegistrar, situacaoDaResposta, tempoDeProvaMinutos } from '../lib/simulado';
+import { sortearMisto } from '../lib/quiz';
+import { provasAnteriores, questoesDoExame, montarApostila, questoesParaTreinar, QUESTOES_DA_PROVA } from '../lib/apostila';
+import { corDaMateria } from '../lib/areas';
+import { formatarDuracao } from '../lib/metrics';
+import { abrirSimulado, listarSimulados, finalizarSimulado as finalizarNoServidor, abandonarSimulado } from '../lib/api/api';
 import ConfigSimulado from '../components/ui/ConfigSimulado';
 import Cronometro from '../components/ui/Cronometro';
+import Dialogo from '../components/ui/Dialogo';
+import { TileDaMateria } from '../components/ui/Materia';
+import { KpiCard, GraficoArea, CartaoDeGrafico } from '../components/ui/Metricas';
 import { BotaoRiscar, GabaritoComentado, OrigemDaQuestao, TrilhaDaQuestao } from '../components/ui/CardDeQuestao';
 import { alternarRisco } from '../lib/cardDeQuestao';
 
@@ -11,66 +19,152 @@ const LETRA = (i) => String.fromCharCode(65 + i);
 const SITUACAO = {
   certa: { rotulo: 'Acertou', icone: 'circle-check', cor: '#4A7A4A', borda: '#4A7A4A40', fundo: '#4A7A4A08' },
   errada: { rotulo: 'Errou', icone: 'circle-x', cor: '#B4413A', borda: '#B4413A40', fundo: '#B4413A08' },
-  'em-branco': { rotulo: 'Em branco', icone: 'circle-x', cor: '#B07A1F', borda: '#B07A1F40', fundo: '#B07A1F08' },
+  'em-branco': { rotulo: 'Em branco', icone: 'circle-x', cor: '#7A5A12', borda: '#B07A1F40', fundo: '#B07A1F08' },
 };
 
-// Botão secundário dos cards: num grid de matérias, cada card com um botão
-// cheio vira uma parede de chamadas competindo entre si. O cheio fica só para
-// a ação principal da tela.
+const COR_DO_QUADRADO = { certa: '#4A7A4A', errada: '#B4413A', 'em-branco': '#d9d5cc' };
+
+// Nota de corte da 1ª fase: 40 das 80.
+const CORTE = 40;
+// A prova real: 5 horas.
+const MINUTOS_DA_PROVA = 300;
+
+// Botão secundário dos cards: o cheio fica só para a ação principal da tela.
 const btnEscuro = { background: '#fff', color: '#1c1b19', border: '1px solid #d6d1c8', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
 
-export default function Simulados({ theme, s, data, sim, setSim, setResultadosHistorico, resultados_historico, go, registrarRespostas, praticarDisciplina, acervo, recarregarAcervo }) {
-  const preDisciplina = sim?.preDisciplina || null;
-  const [etapa, setEtapa] = useState(preDisciplina ? 'config' : 'lista');
+const dataCurta = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : '');
+
+function nomeDoSimulado(linha) {
+  if (!linha) return 'Simulado';
+  if (linha.modalidade === 'geral') return `Simulado Geral de ${dataCurta(linha.iniciado_em)}`;
+  return `${linha.exame}º Exame de Ordem`;
+}
+
+const totalDoSimulado = (linha) => (linha.modalidade === 'geral' ? (linha.questoes || []).length : QUESTOES_DA_PROVA);
+
+// Simulados de dois tipos, ambos registrados no servidor (estudo-service):
+// a prova anterior, refeita como foi aplicada (as 80 do exame, na ordem, em 5
+// horas), e o Simulado Geral, sorteado do acervo. Cada um vira uma apostila:
+// a prova como a pessoa fez, para rever e treinar a partir dela.
+//
+// O servidor é que guarda a ordem e as respostas; se ele não responder ao
+// abrir, a prova corre do mesmo jeito e só a apostila fica de fora. O histórico
+// antigo do navegador (`resultados_historico`) continua aparecendo em "Meus
+// simulados", sem apostila, porque não guardava as respostas.
+export default function Simulados({ theme, s, data, setResultadosHistorico, resultados_historico, registrarRespostas, revisarQuestoes, acervo, recarregarAcervo, usuarioTentativas, sessaoExpirou }) {
+  const [etapa, setEtapa] = useState('lista');
   const [simulado, setSimulado] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [filtroRevisao, setFiltroRevisao] = useState('todas');
-  const [configInicial, setConfigInicial] = useState(preDisciplina);
   // Alternativas riscadas, por id da questão. Fora de `simulado` porque não é
-  // resposta: não entra na correção nem no que se grava, é só o rascunho de
-  // quem está eliminando alternativa — e some com o simulado.
+  // resposta: não entra na correção nem no que se grava.
   const [riscadas, setRiscadas] = useState({});
+  const [servidor, setServidor] = useState({ estado: 'carregando', simulados: [] });
+  const [aviso, setAviso] = useState(null);
+  const [lista, setLista] = useState('provas');
+  const [ano, setAno] = useState('todos');
+  const [apostilaId, setApostilaId] = useState(null);
+  const [abrindo, setAbrindo] = useState(false);
 
   const QUESTOES = data.QUESTOES || [];
-  const DISCIPLINAS = data.DISCIPLINAS || [];
-  // O `filter(Boolean)` não é defensivo à toa: questão do acervo oficial vem
-  // sem disciplina até ser classificada, e sem isto o seletor de simulado
-  // ofereceria uma opção em branco que não filtra nada.
-  const disciplinasComQuestoes = Array.from(new Set(QUESTOES.map((q) => q.disciplina))).filter(Boolean);
 
-  // A pré-seleção (vinda do "Iniciar Simulado" de Disciplinas) vale para UMA
-  // abertura: fica no estado salvo, e sem consumir aqui, quem saísse pelo menu
-  // sem iniciar cairia no formulário daquela matéria em toda visita seguinte.
-  useEffect(() => {
-    if (preDisciplina) setSim({ preDisciplina: null });
-    // Só na montagem: o valor já foi copiado para `configInicial`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const carregar = useCallback(async () => {
+    try {
+      const simulados = await listarSimulados();
+      setServidor({ estado: 'pronto', simulados });
+    } catch (err) {
+      if (err.status === 401) { sessaoExpirou?.(); return; }
+      setServidor((atual) => ({ ...atual, estado: 'erro' }));
+    }
+  }, [sessaoExpirou]);
 
-  const abrirConfig = (disciplina = null) => {
-    setConfigInicial(disciplina);
-    setEtapa('config');
-  };
+  useEffect(() => { carregar(); }, [carregar]);
 
-  const iniciarSimulado = (config) => {
-    const { tipo, disciplina } = config;
-    const pool = sortearQuestoes(QUESTOES, config);
-    if (pool.length === 0) return;
-
+  const comecar = ({ pool, nome, modalidade, minutos, linha = null, inicio = Date.now() }) => {
     setSimulado({
       id: `sim-${Date.now()}`,
-      tipo,
-      disciplina,
+      nome,
+      modalidade,
+      servidorId: linha?.id ?? null,
+      exame: linha?.exame ?? null,
       quantidade: pool.length,
       questoes_pool: pool,
-      tempo_inicio: Date.now(),
-      tempo_total_minutos: tempoDeProvaMinutos(pool.length),
+      tempo_inicio: inicio,
+      tempo_total_minutos: minutos,
       respostas: {},
     });
     setResultado(null);
     setFiltroRevisao('todas');
     setRiscadas({});
+    setApostilaId(null);
     setEtapa('execucao');
+  };
+
+  // Abre no servidor e começa. 409 = já há um aberto: a tela mostra o aberto
+  // para retomar ou descartar, em vez de abrir outro por cima. Outra falha
+  // (rede, servidor antigo) não impede a prova: ela corre sem apostila.
+  const abrirEComecar = async (corpo, montar) => {
+    setAviso(null);
+    setAbrindo(true);
+    let linha = null;
+    try {
+      linha = await abrirSimulado(corpo);
+    } catch (err) {
+      if (err.status === 401) { sessaoExpirou?.(); return; }
+      if (err.status === 409) {
+        setAbrindo(false);
+        setEtapa('lista');
+        setAviso('Você já tem um simulado aberto. Retome ou descarte antes de começar outro.');
+        carregar();
+        return;
+      }
+      setAviso('O simulado não foi registrado no servidor: a prova vale, mas não vai gerar apostila.');
+    }
+    setAbrindo(false);
+    comecar(montar(linha));
+  };
+
+  const iniciarGeral = ({ quantidade }) => {
+    const pool = sortearMisto(QUESTOES, quantidade, usuarioTentativas || {});
+    if (pool.length === 0) return;
+    abrirEComecar({ modalidade: 'geral', questoes: pool.map((q) => String(q.id)) }, (linha) => ({
+      pool, linha, modalidade: 'geral', nome: 'Simulado Geral', minutos: tempoDeProvaMinutos(pool.length),
+    }));
+  };
+
+  const iniciarProva = (exame) => {
+    const pool = questoesDoExame(QUESTOES, exame);
+    if (pool.length === 0) return;
+    // O caderno (tipo 1 a 4) é a mesma prova embaralhada; o acervo guarda a
+    // ordem do tipo 1, e é ela que se refaz.
+    abrirEComecar({ exame, tipo: 1 }, (linha) => ({
+      pool, linha, modalidade: 'prova', nome: `${exame}º Exame de Ordem`, minutos: MINUTOS_DA_PROVA,
+    }));
+  };
+
+  // Retomar reabre a mesma prova com o relógio de quando ela começou. As
+  // respostas só vão ao servidor ao finalizar, então a prova volta em branco.
+  const retomar = (linha) => {
+    const porId = new Map(QUESTOES.map((q) => [String(q.id), q]));
+    const pool = linha.modalidade === 'geral'
+      ? (linha.questoes || []).map((id) => porId.get(String(id))).filter(Boolean)
+      : questoesDoExame(QUESTOES, linha.exame);
+    if (pool.length === 0) { setAviso('As questões deste simulado não estão no acervo carregado.'); return; }
+    const total = linha.modalidade === 'geral' ? tempoDeProvaMinutos(pool.length) : MINUTOS_DA_PROVA;
+    const inicio = Date.parse(linha.iniciado_em) || Date.now();
+    const passados = Math.floor((Date.now() - inicio) / 60000);
+    comecar({ pool, linha, modalidade: linha.modalidade, nome: nomeDoSimulado(linha), minutos: Math.max(1, total - passados), inicio });
+  };
+
+  const descartar = async (linha) => {
+    try {
+      await abandonarSimulado(linha.id);
+    } catch (err) {
+      if (err.status === 401) { sessaoExpirou?.(); return; }
+      setAviso(`O simulado não foi descartado: ${err.message}`);
+    }
+    setAviso(null);
+    carregar();
   };
 
   // Riscar não responde: a alternativa riscada continua clicável e vale como
@@ -88,225 +182,362 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
   };
 
   const finalizarSimulado = () => {
-    // O simulado gravava a nota num histórico local e jogava fora as respostas
-    // — então responder 80 questões em prova não mexia em nada no desempenho
-    // por disciplina, na taxa de acertos nem na revisão. Cada resposta agora
-    // vira uma tentativa no servidor, igual às do quiz.
+    // Cada resposta vira uma tentativa no servidor, igual às do quiz, as em
+    // branco inclusive (como erradas e sem alternativa). `tempoSeg` vai nulo:
+    // o cronômetro é da prova inteira. Com `simuladoId`, a tentativa fica
+    // ligada ao simulado, e é isso que monta a apostila.
     //
-    // `tempoSeg` vai nulo de propósito: o simulado tem um cronômetro só para a
-    // prova inteira, e dividir o total pelo número de questões seria inventar
-    // um tempo por questão que ninguém mediu.
-    //
-    // Vão em fila, não todas juntas: um POST por resposta, ao mesmo tempo,
-    // passava do limite do nginx numa prova de 80 questões. A fila corre em
-    // segundo plano — a tela de resultado abre na hora — e o App avisa na
-    // faixa do topo se alguma não foi salva.
-    //
-    // A questão em branco também vai, como errada e sem alternativa (o
-    // servidor lê `alternativa` nula como "não respondeu"). Antes ela ficava
-    // de fora, e o que a pessoa deixou em branco na prova — "não sabia" ou
-    // "faltou tempo" — nunca chegava ao Caderno de Erros, justamente o que ele
-    // existe para pegar. A taxa de acerto de quem deixa muito em branco cai;
-    // a queda é real, esconder era o problema.
+    // A fila corre em segundo plano (a tela de resultado abre na hora) e só
+    // depois dela o simulado é finalizado: o serviço recusa resposta num
+    // simulado já encerrado.
+    const correcao = corrigirSimulado(simulado.questoes_pool, simulado.respostas);
+    const servidorId = simulado.servidorId;
     if (registrarRespostas) {
-      const respostas = respostasParaRegistrar(simulado.questoes_pool, simulado.respostas);
-      registrarRespostas(respostas);
+      const respostas = respostasParaRegistrar(simulado.questoes_pool, simulado.respostas)
+        .map((r) => (servidorId ? { ...r, simuladoId: servidorId } : r));
+      Promise.resolve(registrarRespostas(respostas)).then(async (fila) => {
+        if (!servidorId || fila?.sessaoTrocou) return;
+        try {
+          await finalizarNoServidor(servidorId, { acertos: correcao.acertos, anuladas: 0 });
+        } catch (err) {
+          if (err.status === 401) { sessaoExpirou?.(); return; }
+          setAviso(`O simulado não foi finalizado no servidor: ${err.message}`);
+        }
+        carregar();
+      });
     }
 
-    const correcao = corrigirSimulado(simulado.questoes_pool, simulado.respostas);
     const tempoTotalMinutos = Math.max(1, Math.round((Date.now() - simulado.tempo_inicio) / 60000));
-
     const novo = {
       id: simulado.id,
-      nome: `Simulado ${simulado.tipo === 'geral' ? 'OAB 1ª Fase' : simulado.disciplina}`,
-      tipo: simulado.tipo,
-      disciplina: simulado.disciplina,
+      nome: simulado.nome,
+      tipo: simulado.modalidade,
       quantidade: simulado.quantidade,
       acertos: correcao.acertos,
-      // `errados` segue sendo "não acertou" (inclui em branco), como as
-      // métricas já leem; `em_branco` é o detalhe novo.
       errados: simulado.quantidade - correcao.acertos,
       em_branco: correcao.emBranco,
       nota_final: correcao.nota,
       tempo_total_minutos: tempoTotalMinutos,
       tempo_limite_minutos: simulado.tempo_total_minutos,
       data_conclusao: new Date().toISOString(),
+      servidor_id: servidorId,
     };
 
-    // Forma funcional: updateSlice faz spread de objetos em partials diretos,
-    // o que corromperia um array ({0: ...}); a função substitui o valor inteiro.
-    setResultadosHistorico((prev) => [...(prev || []), novo]);
-    // O resultado da tela é o desta prova, guardado aqui — não "o último do
-    // histórico", que outra aba da mesma conta pode ter acabado de trocar.
+    // Registrado no servidor, o simulado já está em "Meus simulados" com
+    // apostila; o histórico local fica só para o que não chegou lá.
+    if (!servidorId) setResultadosHistorico((prev) => [...(prev || []), novo]);
     setResultado(novo);
     setEtapa('resultado');
   };
 
-  // ---- ETAPA: Hub (Simulado Geral + Treino por Matéria) ----
+  // ---- ETAPA: lista (provas anteriores, meus simulados, simulado geral) ----
   if (etapa === 'lista') {
-    const hist = resultados_historico || [];
-    const stats = [
-      { label: 'Simulados realizados', value: hist.length },
-      { label: 'Melhor nota', value: hist.length > 0 ? Math.max(...hist.map((r) => r.nota_final)) + '%' : '-' },
-      { label: 'Média de acertos', value: hist.length > 0 ? Math.round(hist.reduce((a, b) => a + b.nota_final, 0) / hist.length) + '%' : '-' },
-      { label: 'Tempo total', value: hist.length > 0 ? hist.reduce((a, b) => a + b.tempo_total_minutos, 0) + 'min' : '-' },
-    ];
-    const materias = DISCIPLINAS.filter((d) => d.classificada !== false && d.total > 0);
-    // Lista vazia tem três causas, e só uma é "acervo sem questões": a carga
-    // pode estar em curso ou ter falhado. Dizer "ainda não tem questões" a
-    // quem teve erro de rede manda a pessoa esperar por algo que não vem.
     const estadoAcervo = acervo?.estado || 'pronto';
     const semAcervo = QUESTOES.length === 0;
-    const carregando = semAcervo && estadoAcervo === 'carregando';
     const erroAcervo = semAcervo && estadoAcervo === 'erro';
-    const textoHero = carregando
-      ? 'Carregando o acervo de questões…'
-      : erroAcervo
-        ? 'O acervo não carregou, então ainda não há questões para sortear.'
-        : semAcervo
-          ? 'O acervo ainda não tem questões carregadas.'
-          : `Sorteio entre ${QUESTOES.length} ${QUESTOES.length === 1 ? 'questão' : 'questões'} dos Exames de Ordem, com gabarito oficial da FGV e tempo de prova real.`;
+
+    const doServidor = servidor.simulados;
+    const aberto = doServidor.find((x) => x.status === 'aberto') || null;
+    const finalizados = doServidor.filter((x) => x.status === 'finalizado');
+    const locais = (resultados_historico || []).filter((r) => !r.servidor_id);
+    const feitos = finalizados.length + locais.length;
+
+    // Placar em acertos de 80 só para provas de 80 questões: um geral de 20
+    // não entra na média nem na curva, ou a curva compararia coisas diferentes.
+    const completos = finalizados.filter((x) => totalDoSimulado(x) === QUESTOES_DA_PROVA).slice().reverse();
+    const ultimo = completos[completos.length - 1] || null;
+    const penultimo = completos[completos.length - 2] || null;
+    const media = completos.length > 0 ? Math.round(completos.reduce((t, x) => t + x.nota, 0) / completos.length) : null;
+    const passou = completos.filter((x) => x.nota >= CORTE).length;
+
+    const provas = provasAnteriores(QUESTOES);
+    const anos = [...new Set(provas.map((p) => p.ano).filter(Boolean))].sort((a, b) => b - a);
+    const visiveis = provas.filter((p) => ano === 'todos' || String(p.ano) === String(ano));
+    const feitasPorExame = new Map();
+    for (const x of doServidor) {
+      if (x.modalidade === 'prova' && x.status !== 'abandonado') {
+        if (!feitasPorExame.has(x.exame)) feitasPorExame.set(x.exame, x); // a mais recente primeiro
+      }
+    }
+
+    const ultimaApostila = finalizados[0] ? montarApostila(finalizados[0], { tentativas: usuarioTentativas, acervo: QUESTOES }) : null;
+    const deixou = ultimaApostila
+      ? ultimaApostila.porMateria.filter((m) => m.erros + m.emBranco > 0 && m.nome !== 'Sem classificação').slice(0, 6)
+      : [];
+
+    const linhaDeProva = (p) => {
+      const feita = feitasPorExame.get(p.exame);
+      const status = !feita
+        ? <span style={s.pill('#f1efea', '#4f4b45')}>Não feita</span>
+        : feita.status === 'aberto'
+          ? <span style={s.pill('#F5EEDC', '#7A5A12')}>Em andamento</span>
+          : (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <b style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>{feita.nota} de 80</b>
+              <span style={feita.nota >= CORTE ? s.pill('#E4EEE1', '#355E35') : s.pill('#F6E4E1', '#8F2F29')}>{feita.nota >= CORTE ? 'Acima de 40' : 'Abaixo de 40'}</span>
+              {feita.duracao_seg != null && <span style={{ fontSize: 12, color: '#6a665f' }}>{formatarDuracao(feita.duracao_seg)}</span>}
+            </span>
+          );
+      return (
+        <div key={p.exame} data-testid={`prova-${p.exame}`} className="linha-prova" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr) auto', gap: 14, alignItems: 'center', padding: '12px 0', borderTop: '1px solid #eeebe5' }}>
+          <div>
+            <b style={{ fontSize: 13.5, color: '#1c1b19' }}>{p.exame}º Exame de Ordem</b>
+            <div style={{ fontSize: 12, color: '#6a665f' }}>
+              {p.completa ? '1ª fase · 80 questões · 5 horas · como foi aplicada' : `${p.total} de 80 questões no acervo`}
+            </div>
+          </div>
+          <span style={{ justifySelf: 'start' }}>{status}</span>
+          {feita && feita.status === 'finalizado' ? (
+            <button data-testid={`apostila-${feita.id}`} onClick={() => setApostilaId(feita.id)} style={{ ...s.link, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
+              <Icon name="book" color={theme.primary} size={14} /> Abrir apostila
+            </button>
+          ) : (
+            <button
+              data-testid={`fazer-prova-${p.exame}`}
+              disabled={!p.completa || Boolean(aberto) || abrindo}
+              title={!p.completa ? 'O acervo ainda não tem as 80 questões deste exame' : aberto ? 'Termine ou descarte o simulado aberto' : undefined}
+              onClick={() => iniciarProva(p.exame)}
+              style={{ ...s.btnOutline, opacity: !p.completa || aberto ? 0.5 : 1, cursor: !p.completa || aberto ? 'not-allowed' : 'pointer' }}
+            >
+              Fazer a prova
+            </button>
+          )}
+        </div>
+      );
+    };
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-          {stats.map((st, i) => (
-            <div key={i} style={s.card}>
-              <div style={s.statLabel}>{st.label}</div>
-              <div style={{ ...s.statNum, marginTop: 4 }}>{st.value}</div>
-            </div>
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="grade-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+          <KpiCard rotulo="Simulados feitos" valor={feitos} contexto={finalizados.length > 0 ? 'cada um tem a sua apostila' : 'nenhum ainda'} testId="kpi-feitos" />
+          <KpiCard
+            rotulo="Último de 80 questões"
+            valor={ultimo ? `${ultimo.nota} de 80` : '—'}
+            variacao={ultimo && penultimo ? { valor: ultimo.nota - penultimo.nota, texto: `${ultimo.nota - penultimo.nota >= 0 ? '+' : '−'}${Math.abs(ultimo.nota - penultimo.nota)}` } : null}
+            contexto={penultimo ? `vs o anterior (${penultimo.nota})` : 'prova completa'}
+            curva={completos.length >= 2 ? completos.map((x) => x.nota) : undefined}
+            corDaCurva={theme.primary}
+          />
+          <KpiCard rotulo="Média" valor={media != null ? `${media} de 80` : '—'} contexto={completos.length > 0 ? `melhor: ${Math.max(...completos.map((x) => x.nota))}` : 'sem prova completa'} />
+          <KpiCard rotulo="Para passar" valor="40 de 80" contexto={completos.length > 0 ? `você passou em ${passou} de ${completos.length}` : 'a nota de corte da 1ª fase'} />
         </div>
 
         {erroAcervo && (
-          <div
-            role="alert"
-            data-testid="simulados-acervo-erro"
-            style={{ ...s.card, display: 'flex', alignItems: 'center', gap: 14, background: '#FAF0EE', border: '1px solid #EBCBC6' }}
-          >
+          <div role="alert" data-testid="simulados-acervo-erro" style={{ ...s.card, display: 'flex', alignItems: 'center', gap: 14, background: '#FAF0EE', border: '1px solid #EBCBC6' }}>
             <Icon name="circle-x" color="#9E3630" size={22} />
             <div style={{ flex: 1, fontSize: 13, color: '#8F2F29', lineHeight: 1.5 }}>
               <b>O acervo não carregou.</b> {acervo?.erro ? `${acervo.erro}. ` : ''}As questões vêm do servidor, então sem esta chamada não há simulado.
             </div>
             {recarregarAcervo && (
-              <button style={{ ...s.btnPrimary, flex: 'none', cursor: 'pointer' }} onClick={recarregarAcervo}>
-                Tentar de novo
-              </button>
+              <button style={{ ...s.btnOutline, flex: 'none', cursor: 'pointer' }} onClick={recarregarAcervo}>Tentar de novo</button>
             )}
           </div>
         )}
 
-        {/* Hero: Simulado Geral */}
-        <div data-testid="hero-simulado-geral" style={{ ...s.card, display: 'flex', alignItems: 'center', gap: 20, padding: 24 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 10, background: theme.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-            <Icon name="graduation-cap" color="#fff" size={22} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#1c1b19' }}>Simulado Geral — OAB 1ª Fase</div>
-            <div style={{ fontSize: 13, color: '#6a665f', marginTop: 4, lineHeight: 1.5 }}>
-              {textoHero}
+        {aviso && (
+          <div role="status" data-testid="aviso-simulado" style={{ ...s.card, padding: '12px 16px', fontSize: 13, color: '#7A5A12', background: '#FBF6EA' }}>{aviso}</div>
+        )}
+
+        {aberto && (
+          <div data-testid="simulado-aberto" style={{ ...s.card, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ width: 40, height: 40, borderRadius: 9, background: theme.primarySoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+              <Icon name="timer" color={theme.primary} size={20} />
+            </span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <h2 style={s.sectionTitle}>Retomar o {nomeDoSimulado(aberto)}</h2>
+              <p style={{ ...s.pageSub, margin: '3px 0 0' }}>
+                Começou em {new Date(aberto.iniciado_em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. O relógio segue de onde a prova começou; as respostas só ficam salvas ao finalizar.
+              </p>
             </div>
+            <button data-testid="descartar-simulado" style={s.btnOutline} onClick={() => descartar(aberto)}>Descartar</button>
+            <button data-testid="retomar-simulado" style={s.btnPrimary} onClick={() => retomar(aberto)}>
+              Retomar simulado <Icon name="chevron-right" color="#fff" size={14} />
+            </button>
           </div>
-          <button
-            data-testid="novo-simulado"
-            onClick={() => abrirConfig(null)}
-            disabled={semAcervo}
-            style={{ ...btnEscuro, background: theme.primary, color: "#fff", border: `1px solid ${theme.primaryDark}`, padding: '13px 22px', borderRadius: 7, fontSize: 13.5, flex: 'none', opacity: semAcervo ? 0.5 : 1, cursor: semAcervo ? 'not-allowed' : 'pointer' }}
-          >
-            <Icon name="play" color="#fff" size={13} /> Iniciar Simulado
-          </button>
+        )}
+
+        <div className="grade-simulados" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <section style={s.card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div role="tablist" aria-label="Lista" style={{ display: 'inline-flex', background: '#f1efea', borderRadius: 8, padding: 3 }}>
+                  {[['provas', 'Provas anteriores'], ['meus', `Meus simulados (${feitos})`]].map(([k, rotulo]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={lista === k}
+                      data-testid={`lista-${k}`}
+                      onClick={() => setLista(k)}
+                      style={{ border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', background: lista === k ? '#fff' : 'transparent', color: lista === k ? '#1c1b19' : '#4f4b45', boxShadow: lista === k ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+                {lista === 'provas' && anos.length > 1 && (
+                  <div role="radiogroup" aria-label="Ano" style={{ display: 'inline-flex', gap: 4 }}>
+                    {['todos', ...anos].map((y) => (
+                      <button
+                        key={y}
+                        role="radio"
+                        aria-checked={String(ano) === String(y)}
+                        onClick={() => setAno(y)}
+                        style={{ border: '1px solid #e6e2da', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: String(ano) === String(y) ? theme.primarySoft : '#fff', color: String(ano) === String(y) ? theme.primaryDark : '#4f4b45' }}
+                      >
+                        {y === 'todos' ? 'Todos' : y}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p style={{ ...s.pageSub, margin: '10px 0 4px' }}>
+                {lista === 'provas'
+                  ? 'Cada prova é refeita como foi aplicada: as questões do exame, na ordem, com 5 horas e o gabarito oficial da FGV.'
+                  : 'Todo simulado registrado vira uma apostila: as questões, o seu gabarito e o que treinar a partir dele.'}
+              </p>
+              {lista === 'provas' ? (
+                visiveis.length === 0 ? (
+                  <div style={{ fontSize: 13, color: '#6a665f', padding: '14px 0' }}>{semAcervo ? 'O acervo ainda não carregou.' : 'Nenhum exame no acervo.'}</div>
+                ) : (
+                  (ano === 'todos' && anos.length > 0 ? anos : [ano]).map((y) => {
+                    const doAno = visiveis.filter((p) => String(p.ano) === String(y));
+                    if (doAno.length === 0) return null;
+                    return (
+                      <div key={y}>
+                        {ano === 'todos' && <div style={{ fontSize: 12, fontWeight: 700, color: '#6a665f', marginTop: 12 }}>{y}</div>}
+                        {doAno.map(linhaDeProva)}
+                      </div>
+                    );
+                  }).concat(visiveis.filter((p) => p.ano == null).map(linhaDeProva))
+                )
+              ) : (
+                <div data-testid="meus-simulados">
+                  {feitos === 0 && <div style={{ fontSize: 13, color: '#6a665f', padding: '14px 0' }}>Você ainda não terminou nenhum simulado.</div>}
+                  {finalizados.map((x, i) => {
+                    const total = totalDoSimulado(x);
+                    const anterior = finalizados.slice(i + 1).find((y) => totalDoSimulado(y) === total);
+                    const dif = anterior ? x.nota - anterior.nota : null;
+                    return (
+                      <div key={x.id} className="linha-prova" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr) auto', gap: 14, alignItems: 'center', padding: '12px 0', borderTop: '1px solid #eeebe5' }}>
+                        <div>
+                          <b style={{ fontSize: 13.5, color: '#1c1b19' }}>{nomeDoSimulado(x)}</b>
+                          <div style={{ fontSize: 12, color: '#6a665f' }}>{dataCurta(x.finalizado_em)}{x.fora_do_tempo ? ' · passou do tempo' : ''}{x.refeito ? ' · prova já feita antes' : ''}</div>
+                        </div>
+                        <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <b style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>{x.nota} de {total}</b>
+                          {dif != null && dif !== 0 && <span style={s.pill(dif > 0 ? '#E8F0E6' : '#F6E5E3', dif > 0 ? '#355E35' : '#8F2F29')}>{dif > 0 ? '+' : '−'}{Math.abs(dif)}</span>}
+                          {x.duracao_seg != null && <span style={{ fontSize: 12, color: '#6a665f' }}>{formatarDuracao(x.duracao_seg)}</span>}
+                        </span>
+                        <button data-testid={`apostila-${x.id}`} onClick={() => setApostilaId(x.id)} style={{ ...s.link, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
+                          <Icon name="book" color={theme.primary} size={14} /> Abrir apostila
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {locais.slice().reverse().map((r) => (
+                    <div key={r.id} className="linha-prova" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr) auto', gap: 14, alignItems: 'center', padding: '12px 0', borderTop: '1px solid #eeebe5' }}>
+                      <div>
+                        <b style={{ fontSize: 13.5, color: '#1c1b19' }}>{r.nome}</b>
+                        <div style={{ fontSize: 12, color: '#6a665f' }}>{dataCurta(r.data_conclusao)} · só neste navegador</div>
+                      </div>
+                      <span style={{ fontSize: 13 }}><b style={{ fontVariantNumeric: 'tabular-nums' }}>{r.acertos} de {r.quantidade}</b></span>
+                      <span style={{ fontSize: 12, color: '#6a665f' }}>sem apostila</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section data-testid="hero-simulado-geral" style={{ ...s.card, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <h2 style={s.sectionTitle}>Simulado Geral</h2>
+                <p style={{ ...s.pageSub, margin: '3px 0 0' }}>
+                  {semAcervo
+                    ? 'O acervo ainda não carregou, então não há questões para sortear.'
+                    : 'Questões distribuídas como a prova cobra, primeiro as que você ainda não fez. Também vira apostila.'}
+                </p>
+              </div>
+              <button
+                data-testid="novo-simulado"
+                onClick={() => setEtapa('config')}
+                disabled={semAcervo || Boolean(aberto)}
+                title={aberto ? 'Termine ou descarte o simulado aberto' : undefined}
+                style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 6, opacity: semAcervo || aberto ? 0.5 : 1, cursor: semAcervo || aberto ? 'not-allowed' : 'pointer' }}
+              >
+                <Icon name="play" color="#1c1b19" size={12} /> Iniciar simulado
+              </button>
+            </section>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {completos.length >= 2 && (
+              <CartaoDeGrafico titulo="Acertos por simulado" sub={`${completos.length} provas de 80 questões. A linha tracejada é a nota de corte.`}>
+                <GraficoArea
+                  rotulos={completos.map((x) => dataCurta(x.finalizado_em))}
+                  series={[{ rotulo: 'Acertos', valores: completos.map((x) => x.nota), cor: theme.primary }]}
+                  descricao={`Acertos por simulado, de ${Math.min(...completos.map((x) => x.nota))} a ${Math.max(...completos.map((x) => x.nota))} de 80`}
+                  largura={320}
+                  altura={210}
+                  referencia={{ valor: CORTE, rotulo: 'Corte: 40' }}
+                />
+              </CartaoDeGrafico>
+            )}
+            {ultimaApostila && deixou.length > 0 && (
+              <section style={s.card} data-testid="onde-deixou">
+                <h2 style={s.sectionTitle}>Onde você deixou pontos</h2>
+                <div style={{ fontSize: 12, color: '#6a665f', margin: '4px 0 12px' }}>No {nomeDoSimulado(ultimaApostila.simulado)}: as matérias em que você mais deixou questões.</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {deixou.map((m) => (
+                    <div key={m.nome}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                        <span style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#1c1b19', minWidth: 0 }}><TileDaMateria materia={m.nome} tamanho={22} />{m.nome}</span>
+                        <span style={{ color: '#6a665f', flex: 'none' }}>levou {m.acertos} de {m.total}</span>
+                      </div>
+                      <div style={{ ...s.progressTrack, marginTop: 5 }}><div style={{ width: `${(m.acertos / m.total) * 100}%`, height: '100%', background: corDaMateria(m.nome), borderRadius: 3 }} /></div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setApostilaId(ultimaApostila.simulado.id)} style={{ ...s.link, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, marginTop: 14, padding: 0 }}>
+                  <Icon name="book" color={theme.primary} size={14} /> Abrir a apostila deste simulado
+                </button>
+              </section>
+            )}
+            <section style={s.card}>
+              <h2 style={s.sectionTitle}>Simulado da 2ª fase</h2>
+              <p style={{ ...s.pageSub, margin: '4px 0 0' }}>A 2ª fase de Direito Civil tem tela própria: troque a fase no seletor do topo da barra lateral.</p>
+            </section>
+          </div>
         </div>
 
-        {/* Treino por Matéria — some com o erro do acervo: o aviso acima já
-            diz o que falta, e um título sem nada embaixo parece tela quebrada. */}
-        {!erroAcervo && (
-          <div>
-            <div style={{ margin: '12px 0 0', paddingBottom: 10, borderBottom: '1px solid #e6e2da', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <h2 style={{ ...s.pageTitle, fontSize: 21 }}>Treino por matéria</h2>
-              <div style={{ fontSize: 12.5, color: '#6a665f' }}>Simulado curto ou prática livre em uma disciplina</div>
-            </div>
-
-            {/* As matérias aqui eram uma lista fixa de oito nomes; hoje vêm do
-                acervo real. Questão ainda sem disciplina (o enriquecimento não
-                passou) não forma card: ela só entra no simulado geral. */}
-            {carregando ? (
-              <div data-testid="treino-carregando" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 18 }}>
-                {[0, 1, 2].map((i) => <div key={i} className="esqueleto" style={{ height: 170, borderRadius: 10 }} />)}
-              </div>
-            ) : materias.length === 0 ? (
-              <div data-testid="treino-vazio" style={{ ...s.card, textAlign: 'center', padding: '32px 20px', color: '#6a665f', fontSize: 13.5, marginTop: 18, lineHeight: 1.6 }}>
-                {semAcervo
-                  ? 'Nenhuma disciplina no acervo ainda.'
-                  : 'As questões do acervo ainda não foram separadas por matéria. Enquanto isso, o Simulado Geral usa todas elas.'}
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 18 }}>
-                {materias.map((d) => (
-                  <div key={d.nome} data-testid="card-materia" style={{ ...s.card, display: 'flex', flexDirection: 'column', gap: 12, padding: 22 }}>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: '#1c1b19', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: d.cor, flex: 'none' }} />{d.nome}
-                      </div>
-                      <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 3 }}>
-                        {d.total} {d.total === 1 ? 'questão' : 'questões'} no acervo
-                        {d.pct != null ? ` · ${d.pct}% de acerto seu` : ''}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                      <button
-                        data-testid="simular-materia"
-                        onClick={() => abrirConfig(d.nome)}
-                        style={{ ...btnEscuro, flex: 1, padding: '10px 12px', borderRadius: 9, fontSize: 12.5, gap: 7, whiteSpace: 'nowrap' }}
-                      >
-                        <Icon name="graduation-cap" color="#1c1b19" size={13} /> Iniciar simulado
-                      </button>
-                      {/* Mesmo nome e destino do "Praticar" de Disciplinas: o quiz da matéria. */}
-                      <button
-                        data-testid="praticar-materia"
-                        onClick={() => (praticarDisciplina ? praticarDisciplina(d.nome) : go && go('questoes'))}
-                        style={{ padding: '10px 14px', background: '#fff', color: '#4f4b45', border: '1px solid #e6e2da', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                      >
-                        <Icon name="play" color="#4f4b45" size={12} /> Praticar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Histórico */}
-        {hist.length > 0 && (
-          <div style={s.card}>
-            <h2 style={s.sectionTitle}><Icon name="chart-column" color={theme.primary} size={18} />Histórico de Simulados</h2>
-            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 6, lineHeight: 1.5 }}>
-              As respostas de cada simulado entram no seu histórico no servidor
-              e contam no desempenho por disciplina. Já a nota final da prova
-              fica guardada neste navegador — ainda não existe rota de simulado
-              na API.
-            </div>
-            {hist.slice().reverse().map((r) => (
-              <div key={r.id} style={{ padding: 12, borderBottom: '1px solid #e6e2da' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{r.nome}</div>
-                    <div style={{ fontSize: 12, color: '#6a665f', marginTop: 4 }}>
-                      {r.acertos}/{r.quantidade} acertos • {r.tempo_total_minutos}min
-                      {r.data_conclusao ? ` • ${new Date(r.data_conclusao).toLocaleDateString('pt-BR')}` : ''}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: theme.primary }}>{r.nota_final}%</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {apostilaId != null && (() => {
+          const linha = doServidor.find((x) => x.id === apostilaId);
+          const ap = linha ? montarApostila(linha, { tentativas: usuarioTentativas, acervo: QUESTOES }) : null;
+          if (!ap) return null;
+          return (
+            <Apostila
+              s={s}
+              theme={theme}
+              apostila={ap}
+              onFechar={() => setApostilaId(null)}
+              treinar={(questoes) => { setApostilaId(null); revisarQuestoes?.(questoes); }}
+              refazerProva={aberto ? null : () => {
+                setApostilaId(null);
+                if (linha.modalidade === 'prova') iniciarProva(linha.exame);
+                else {
+                  const pool = ap.itens.map((x) => x.questao).filter(Boolean);
+                  abrirEComecar({ modalidade: 'geral', questoes: pool.map((q) => String(q.id)) }, (l) => ({
+                    pool, linha: l, modalidade: 'geral', nome: 'Simulado Geral', minutos: tempoDeProvaMinutos(pool.length),
+                  }));
+                }
+              }}
+            />
+          );
+        })()}
       </div>
     );
   }
 
-  // ---- ETAPA: Configuração ("Vamos começar!") ----
+  // ---- ETAPA: Configuração do Simulado Geral ----
   if (etapa === 'config') {
     return (
       <div>
@@ -316,14 +547,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
         >
           ← Voltar
         </button>
-        <ConfigSimulado
-          theme={theme}
-          s={s}
-          onConfirm={iniciarSimulado}
-          disciplinas={disciplinasComQuestoes}
-          questoes={QUESTOES}
-          disciplinaInicial={configInicial}
-        />
+        <ConfigSimulado s={s} onConfirm={iniciarGeral} questoes={QUESTOES} />
       </div>
     );
   }
@@ -337,10 +561,10 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
         <div style={{ ...s.card, textAlign: 'center', padding: 20 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: '#1c1b19' }}>
-            {simulado.tipo === 'geral' ? 'Simulado Geral — OAB 1ª Fase' : `Simulado — ${simulado.disciplina}`}
+            {simulado.nome}
           </div>
           <div style={{ fontSize: 13, color: '#6a665f', marginTop: 4 }}>
-            Você selecionou <b style={{ color: '#1c1b19' }}>{simulado.quantidade} {simulado.quantidade === 1 ? 'questão' : 'questões'}</b>. Gerencie seu tempo e boa sorte!
+            <b style={{ color: '#1c1b19' }}>{simulado.quantidade} {simulado.quantidade === 1 ? 'questão' : 'questões'}</b> · {formatarDuracao(simulado.tempo_total_minutos * 60)} de prova
           </div>
           <div style={{ fontSize: 12, color: '#6a665f', marginTop: 6 }}>
             Sem correção durante a prova — o gabarito aparece quando você finalizar.
@@ -393,7 +617,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                         fontSize: 13.5,
                         color: '#1c1b19',
                         fontFamily: 'inherit',
-                        transition: 'all 0.15s',
+                        transition: 'border-color 150ms var(--ease-out), background-color 150ms var(--ease-out)',
                       }}
                     >
                       <div style={{
@@ -434,7 +658,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
               {respondidas}/{simulado.quantidade} respondidas
             </div>
             <div style={{ ...s.progressTrack, height: 6, width: '100%' }}>
-              <div style={{ width: `${pctRespondidas}%`, height: '100%', background: `linear-gradient(90deg, ${theme.gradA}, ${theme.gradB})`, borderRadius: 5, transition: 'width 200ms' }} />
+              <div style={{ width: `${pctRespondidas}%`, height: '100%', background: theme.primary, borderRadius: 5, transition: 'width 200ms var(--ease-out)' }} />
             </div>
           </div>
           <button
@@ -513,7 +737,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           </div>
 
           {itens.length === 0 && (
-            <div style={{ fontSize: 13, color: '#6a665f', marginTop: 14 }}>Nenhuma questão errada ou em branco. Gabaritou!</div>
+            <div style={{ fontSize: 13, color: '#6a665f', marginTop: 14 }}>Nenhuma questão errada ou em branco.</div>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
@@ -585,4 +809,105 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
   }
 
   return null;
+}
+
+// A apostila de um simulado: o placar, o mapa das questões na ordem em que
+// caíram (verde acertou, vermelho errou, cinza em branco), o desempenho por
+// matéria naquela prova e o treino a partir dela. Treinar abre as questões no
+// quiz, com gabarito ao responder; refazer a prova abre outro simulado.
+function Apostila({ s, theme, apostila, onFechar, treinar, refazerProva }) {
+  const { simulado, itens } = apostila;
+  const erros = questoesParaTreinar(apostila, { filtro: 'erros' });
+  const emBranco = questoesParaTreinar(apostila, { filtro: 'em-branco' });
+  const resumo = [
+    { rotulo: 'Acertos', valor: apostila.acertos, cor: '#355E35' },
+    { rotulo: 'Erros', valor: apostila.erros, cor: '#8F2F29' },
+    { rotulo: 'Em branco', valor: apostila.emBranco, cor: '#4f4b45' },
+    { rotulo: 'Tempo', valor: apostila.duracaoSeg != null ? formatarDuracao(apostila.duracaoSeg) : '—', cor: '#1c1b19' },
+  ];
+
+  return (
+    <Dialogo
+      testId="apostila"
+      largura={820}
+      titulo={`Apostila · ${nomeDoSimulado(simulado)}`}
+      sub={`${simulado.nota ?? apostila.acertos} de ${apostila.total} · ${dataCurta(simulado.finalizado_em)}${simulado.fora_do_tempo ? ' · passou do tempo' : ''}`}
+      acoes={(
+        <button data-testid="refazer-erros" disabled={erros.length === 0} onClick={() => treinar(erros)} style={{ ...s.btnPrimary, opacity: erros.length === 0 ? 0.5 : 1 }}>
+          <Icon name="rotate-ccw" color="#fff" size={13} /> Refazer só os erros
+        </button>
+      )}
+      onFechar={onFechar}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+        {resumo.map((r) => (
+          <div key={r.rotulo} style={{ background: '#fff', borderRadius: 10, padding: '10px 12px', border: '1px solid #eeebe5' }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f' }}>{r.rotulo}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: r.cor, fontVariantNumeric: 'tabular-nums' }}>{r.valor}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 10, padding: 14, border: '1px solid #eeebe5' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1b19', marginBottom: 10 }}>Seu gabarito</div>
+        <div
+          role="img"
+          aria-label={`${apostila.acertos} acertos, ${apostila.erros} erros e ${apostila.emBranco} em branco, na ordem da prova`}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(20, minmax(0, 1fr))', gap: 4 }}
+        >
+          {itens.map((x) => (
+            <span
+              key={x.numero}
+              title={`Questão ${x.numero} · ${x.disciplina} · ${SITUACAO[x.situacao].rotulo}`}
+              style={{ aspectRatio: '1', borderRadius: 3, background: COR_DO_QUADRADO[x.situacao], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: x.situacao === 'em-branco' ? '#4f4b45' : '#fff', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {x.numero}
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11.5, color: '#6a665f', marginTop: 10 }}>
+          {[['certa', 'Acertou'], ['errada', 'Errou'], ['em-branco', 'Em branco']].map(([k, rotulo]) => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><i style={{ width: 9, height: 9, borderRadius: 2, background: COR_DO_QUADRADO[k], display: 'block' }} />{rotulo}</span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 10, padding: 14, border: '1px solid #eeebe5' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1b19', marginBottom: 8 }}>Por matéria nesta prova</div>
+        {apostila.porMateria.map((m) => {
+          const pendentes = questoesParaTreinar(apostila, { materia: m.nome });
+          return (
+            <div key={m.nome} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px auto', gap: 12, alignItems: 'center', padding: '7px 0', borderTop: '1px solid #f1efea' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#1c1b19', minWidth: 0 }}>
+                <TileDaMateria materia={m.nome} tamanho={22} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.nome}</span>
+              </span>
+              <span style={{ fontSize: 12.5, color: '#4f4b45', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{m.acertos} de {m.total}</span>
+              <button
+                disabled={pendentes.length === 0}
+                onClick={() => treinar(pendentes)}
+                style={{ ...s.btnOutline, padding: '5px 10px', fontSize: 12, opacity: pendentes.length === 0 ? 0.4 : 1 }}
+              >
+                Treinar
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button data-testid="treinar-em-branco" disabled={emBranco.length === 0} onClick={() => treinar(emBranco)} style={{ ...s.btnOutline, opacity: emBranco.length === 0 ? 0.5 : 1 }}>
+          Treinar as {emBranco.length} em branco
+        </button>
+        {refazerProva && (
+          <button data-testid="refazer-prova" onClick={refazerProva} style={s.btnOutline}>
+            Refazer a prova inteira
+          </button>
+        )}
+        <span style={{ fontSize: 12, color: theme ? '#6a665f' : undefined, alignSelf: 'center' }}>
+          O treino abre as questões no quiz, com o gabarito ao responder.
+        </span>
+      </div>
+    </Dialogo>
+  );
 }

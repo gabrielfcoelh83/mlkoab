@@ -726,13 +726,13 @@ export default function App() {
   // `emLote`: a fila do simulado (`registrarRespostas`) cuida da faixa de erro
   // uma vez só, no fim — resposta por resposta, cada chamada apagaria a
   // mensagem da falha anterior.
-  const registrar = ({ questaoId, correta, alternativa, tempoSeg, origem }, { emLote = false } = {}) => {
+  const registrar = ({ questaoId, correta, alternativa, tempoSeg, origem, simuladoId }, { emLote = false } = {}) => {
     if (!emLote) setErroSync(null);
     const epoch = sessaoEpoch.current;
 
     const pendente = (async () => {
       try {
-        const tentativa = await registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem });
+        const tentativa = await registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem, simuladoId });
 
         // Saiu enquanto o POST estava no ar: a tentativa foi gravada e
         // pertence a quem a respondeu, mas não pode voltar para a tela de
@@ -791,13 +791,16 @@ export default function App() {
         },
       );
 
-      if (sessaoEpoch.current !== epoch) return;
       // Interrompida (o token mudou em outra aba, por exemplo), o que não
       // chegou a sair também não foi salvo — não só o que falhou.
       const naoSalvas = interrompida ? respostas.length - salvos : falhas;
+      if (sessaoEpoch.current !== epoch) return { naoSalvas, sessaoTrocou: true };
       if (naoSalvas > 0) {
         setErroSync(`${naoSalvas} de ${respostas.length} respostas deste simulado não foram salvas no servidor.`);
       }
+      // O simulado registrado no servidor só é finalizado depois da fila: o
+      // serviço recusa resposta num simulado já encerrado.
+      return { naoSalvas, sessaoTrocou: false };
     } finally {
       respostasNaFila.current -= respostas.length;
     }
@@ -1507,6 +1510,7 @@ export default function App() {
               setSim={(p) => updateSlice('simulados', p)}
               setResultadosHistorico={(p) => updateSlice('resultados_historico', p)}
               registrarRespostas={registrarRespostas}
+              sessaoExpirou={encerrarSessao}
               acervo={acervo}
               recarregarAcervo={() => setRecarga((n) => n + 1)}
             />
@@ -1531,7 +1535,6 @@ export default function App() {
               {...screenProps}
               disc={state.disciplinas}
               setDisc={(p) => updateSlice('disciplinas', p)}
-              simularDisciplina={(nome) => setState((st) => ({ ...st, screen: 'simulados', simulados: { ...st.simulados, preDisciplina: nome } }))}
             />
           )}
           {state.screen === 'anotacoes' && (
