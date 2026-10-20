@@ -293,6 +293,15 @@ button:not(:disabled):active {
     margin-left: 0 !important;
     justify-content: center;
   }
+
+  /* Refazer no celular: os dois botões do painel travado e o "Voltar para
+     Revisões" ocupam a largura, como o resto das ações de tela cheia. */
+  .ver-questao-painel [data-testid='gabarito-travado'] button,
+  .ver-questao-painel [data-testid='resumo-voltar'] {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* --- Foco visível onde o estilo inline tirava o contorno ---------------- */

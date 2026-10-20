@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../lib/icons';
 import { normalizar } from '../lib/texto';
 import { agruparPorDisciplina, refeitasHoje } from '../lib/revisao';
+import { congelarSequencia } from '../lib/refazer';
 import MotivoDoErro from '../components/ui/MotivoDoErro';
 import VerQuestao from '../components/ui/VerQuestao';
 
@@ -60,7 +61,7 @@ function dot(c) {
   return { width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' };
 }
 
-export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavorito, revisao, disciplinas, revisarQuestoes, anotarMotivo, usuarioTentativas }) {
+export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavorito, revisao, disciplinas, registrar, anotarMotivo, usuarioTentativas }) {
   const resumo = revisao.resumo;
   const marcados = new Set((favoritos || []).map(String));
 
@@ -118,7 +119,18 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
     .sort((a, b) => a.pct - b.pct)
     .slice(0, 5);
 
-  const abrirModal = (indice) => setModal({ indice: Math.max(0, indice) });
+  // O modal recebe uma cópia da sequência tirada na abertura: gravar uma
+  // tentativa muda `usuarioTentativas` e a questão pode sair de "Errei" no
+  // meio da sessão, e sem a cópia a lista sumiria debaixo do modal (pulando ou
+  // fechando sozinho). `modo` decide se ele abre lendo ou já refazendo.
+  const abrirModal = (lista, indice, modo) => {
+    const sequencia = congelarSequencia(lista, indice);
+    if (sequencia.itens.length === 0) return;
+    setModal({ itens: sequencia.itens, indice: sequencia.indice, modo });
+  };
+
+  const abrirLeitura = (indice) => abrirModal(filtrados, indice, 'ler');
+  const abrirRefazer = (lista, indice) => abrirModal(lista, indice, 'refazer');
 
   const vazioDaAba = {
     errei: 'Nenhuma questão errada na última tentativa. Quando você errar alguma, ela aparece aqui.',
@@ -164,7 +176,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
               <button
                 data-testid="revisar-tudo"
                 style={{ ...s.btnPrimary, marginLeft: 'auto' }}
-                onClick={() => revisarQuestoes(filtrados.map((x) => x.questao))}
+                onClick={() => abrirRefazer(filtrados, 0)}
               >
                 <Icon name="play" color="#fff" size={13} /> Refazer {filtrados.length === 1 ? 'a questão' : `as ${filtrados.length}`}
               </button>
@@ -217,7 +229,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
                     <button
                       data-testid={`refazer-grupo-${gi}`}
                       style={{ ...s.btnOutline, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
-                      onClick={() => revisarQuestoes(grupo.itens.map((x) => x.questao))}
+                      onClick={() => abrirRefazer(grupo.itens, 0)}
                     >
                       <Icon name="play" color="#1c1b19" size={12} /> Refazer {grupo.itens.length === 1 ? 'a questão' : `as ${grupo.itens.length}`}
                     </button>
@@ -258,7 +270,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
                             <button
                               data-testid={`revisar-${q.id}`}
                               style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}
-                              onClick={() => revisarQuestoes([q])}
+                              onClick={() => abrirRefazer(filtrados, filtrados.findIndex((x) => String(x.questao.id) === String(q.id)))}
                             >
                               <Icon name="play" color="#1c1b19" size={12} /> Refazer
                             </button>
@@ -279,7 +291,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
                         )}
                         <button
                           data-testid={`ver-questao-${q.id}`}
-                          onClick={() => abrirModal(filtrados.findIndex((x) => String(x.questao.id) === String(q.id)))}
+                          onClick={() => abrirLeitura(filtrados.findIndex((x) => String(x.questao.id) === String(q.id)))}
                           style={{ ...s.link, alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, fontWeight: 600, cursor: 'pointer' }}
                         >
                           Ver questão e gabarito
@@ -350,10 +362,11 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
         <VerQuestao
           s={s}
           theme={theme}
-          itens={filtrados}
+          itens={modal.itens}
           indiceInicial={modal.indice}
+          modoInicial={modal.modo}
           onFechar={() => setModal(null)}
-          revisarQuestoes={revisarQuestoes}
+          registrar={registrar}
           anotarMotivo={anotarMotivo}
         />
       )}

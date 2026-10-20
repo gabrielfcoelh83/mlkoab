@@ -46,6 +46,7 @@ src/
     ├── storage.js        # localStorage: estado da interface e dados por conta
     ├── metrics.js        # Meta diária, sequência, taxas, evolução, estatísticas
     ├── revisao.js        # O que está errado / favoritado, refeitas do dia e agrupamento por disciplina
+    ├── refazer.js        # Sequência congelada, resultado e resumo do refazer dentro do modal
     ├── disciplinas.js    # Disciplinas derivadas do acervo, cores, prioridade
     ├── agenda.js         # Plano da semana (folga, ritmo, bloco de estudo), calendário e eventos do Google Agenda
     ├── perfil.js         # Payload do JWT, nome de exibição, saudação
@@ -184,7 +185,7 @@ recarregar a página volta para ela — mas não há URL por tela.
 | `cronograma` | `Cronograma.jsx` | Sugestão de semana, calendário e Google Agenda (ver "Cronograma") | `diasDeEstudo`, `bloco`, `salvarAgenda`, `perfilCarregado`, `sessaoExpirou` |
 | `questoes` | `Questoes.jsx` | Meta do dia, cadernos por matéria e quiz (ver "Questões") | `quest`, `setQuest`, `registrar`, `acervo`, `recarregarAcervo` |
 | `simulados` | `Simulados.jsx` | Hub, formulário, prova e resultado do simulado (ver "Simulados") | `sim`, `setSim`, `setResultadosHistorico`, `registrarRespostas`, `acervo`, `recarregarAcervo` |
-| `revisoes` | `Revisoes.jsx` | Erradas, favoritas e menor desempenho, agrupadas por disciplina; busca, filtro e modal de gabarito | `rev`, `setRev`, `favoritos`, `toggleFavorito` |
+| `revisoes` | `Revisoes.jsx` | Erradas, favoritas e menor desempenho, agrupadas por disciplina; busca, filtro e modal de leitura/refazer | `rev`, `setRev`, `favoritos`, `toggleFavorito`, `registrar`, `anotarMotivo` |
 | `desempenho` | `Desempenho.jsx` | Evolução ao longo do tempo | `perf`, `setPerf` |
 | `estatisticas` | `Estatisticas.jsx` | Números por período e disciplina | `filtros`, `setFiltros` |
 | `favoritos` | `Favoritos.jsx` | Questões marcadas com estrela | `toggleFavorito` (recebe `favoritos` mas não usa; lê de `revisao`) |
@@ -365,12 +366,39 @@ fallback de `ABAS[0]` em `Revisoes.jsx`, sem migração do localStorage.
   acertos/tentativas, enunciado em duas linhas, estrela e "Refazer", sem o
   pill de situação. O rodapé traz "Ver questão e gabarito".
 
-`VerQuestao.tsx` (novo, em TypeScript) é o modal só de leitura: tema,
+`VerQuestao.tsx` (novo, em TypeScript) é o modal da questão: tema,
 procedência, posição, alternativas com gabarito e a resposta da última
 tentativa (com rótulos distintos quando são a mesma), `GabaritoComentado` e o
 `MotivoDoErro`. Navega pela lista visível, na disciplina da questão ou em
-todas; Esc e o fundo fecham, e o foco volta ao botão que abriu. Não grava
-tentativa — refazer dentro do modal é a fase 2.
+todas; Esc e o fundo fecham, e o foco volta ao botão que abriu.
+
+**Refazer dentro do modal.** "Refazer" do cartão, "Refazer as N" do grupo e o
+do topo abrem o modal **já no modo refazer** — no item escolhido, no primeiro
+do grupo ou no primeiro da lista filtrada, com a sequência correspondente.
+"Ver questão e gabarito" continua abrindo em leitura.
+
+- **Sequência congelada:** `congelarSequencia` (`lib/refazer.js`) tira uma
+  cópia dos itens ao abrir. Gravar uma tentativa muda `usuarioTentativas` e a
+  questão pode sair de "Errei" na lista viva; sem a cópia o modal pularia ou
+  fecharia sozinho no meio da sessão.
+- **No modo refazer:** alternativas viram um `radiogroup` selecionável (Enter
+  e Espaço marcam; terminar uma seleção de texto não conta). Cada uma tem a
+  tesoura (`BotaoRiscar` + `alternarRisco`, de `CardDeQuestao`), que só risca.
+  Gabarito, comentário e "Por que errei?" ficam atrás do painel "Gabarito e
+  comentário travados": "Ver sem responder" volta à leitura sem gravar;
+  "Confirmar resposta" fica desabilitado enquanto nada estiver marcado.
+- **Confirmar** chama `registrar` (o mesmo POST do quiz, via props do `App`)
+  com `origem: 'revisao'` (de `lib/refazer.js`) e o tempo desde que a questão
+  entrou no modo refazer. Depois mostra `resultadoDoRefazer` ("Acertou desta
+  vez. A questão sai de Errei." / "Errou de novo. A questão continua em
+  Errei.") e o gabarito, com a alternativa marcada rotulada "Sua resposta
+  agora". "Próxima" continua no modo refazer.
+- **Resumo:** na última questão, "Concluir" mostra `resumoDoRefazer` — "Você
+  refez N", "acertou A", "continua em Errei E" — e "Voltar para Revisões". Sem
+  nenhuma refeita na sessão, "Concluir" só fecha.
+- **Celular (≤ 560px):** o refazer usa o mesmo painel de tela cheia do modal
+  (`.ver-questao-fundo`/`.ver-questao-painel` em `index.css`); os botões do
+  painel travado e o "Voltar para Revisões" ocupam a largura.
 
 Na aba "Errei", cada erro pode receber um motivo opcional ("Por que errei?"):
 os valores de `MOTIVOS_DO_ERRO` (`lib/revisao.js`) mais uma nota livre. O

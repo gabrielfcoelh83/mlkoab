@@ -1333,6 +1333,7 @@ export default function App() {
               setRev={(p) => updateSlice('revisoes', p)}
               favoritos={state.favoritos}
               toggleFavorito={toggleFavorito}
+              registrar={registrar}
               anotarMotivo={anotarMotivo}
             />
           )}

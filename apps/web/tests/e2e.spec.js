@@ -951,7 +951,7 @@ test.describe('Revisões', () => {
     }
   });
 
-  test('"Refazer" abre um quiz com a questão escolhida', async ({ page }) => {
+  test('"Refazer" abre o modal já no modo refazer, na questão escolhida', async ({ page }) => {
     // Responde uma questão aqui mesmo em vez de contar com o que outro teste
     // deixou: a lista de menor desempenho muda com o que a suíte já respondeu,
     // e um teste que depende da ordem de execução é um teste que quebra
@@ -972,14 +972,16 @@ test.describe('Revisões', () => {
     const id = (await primeiroItem.getAttribute('data-testid')).replace('revisao-item-', '');
     const naLista = await page.locator(`[data-testid="revisao-enunciado-${id}"]`).innerText();
 
-    // O botão existia e não fazia nada: era um `<button>` sem onClick.
+    // O botão existia e não fazia nada: era um `<button>` sem onClick. Depois
+    // da fase 2 ele abre o modal no modo refazer — não o quiz.
     await page.click(`[data-testid="revisar-${id}"]`);
 
-    const enunciado = page.locator('[data-testid="enunciado"]');
-    await expect(enunciado).toBeVisible();
+    const modal = page.locator('[data-testid="ver-questao-modal"]');
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('[data-testid="gabarito-travado"]')).toBeVisible();
 
     // A questão aberta tem de ser AQUELA, e não uma qualquer do acervo.
-    expect(await enunciado.innerText()).toBe(naLista);
+    await expect(modal.locator('[data-testid="ver-questao-enunciado"]')).toHaveText(naLista);
   });
 
   test('agrupa por disciplina, filtra e abre o gabarito no modal', async ({ page }) => {
@@ -1073,6 +1075,114 @@ test.describe('Revisões', () => {
     await page.keyboard.press('Escape');
     await expect(modal).toHaveCount(0);
     await expect(page.locator('[data-testid="ver-questao-9501"]')).toBeFocused();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revisões — refazer dentro do modal (fase 2)
+// ---------------------------------------------------------------------------
+//
+// O "Refazer" não abre mais o quiz: troca o próprio modal para o modo refazer,
+// esconde gabarito e comentário e grava uma tentativa pela mesma função do
+// quiz (`registrar`). Acervo e histórico vêm simulados, como no "Card de
+// questão": a questão existe só nesta resposta, e o POST é capturado para
+// provar que riscar e marcar não gravam nada antes do "Confirmar resposta".
+test.describe('Revisões — refazer no modal', () => {
+  const QUESTAO = {
+    id: 9601,
+    exame: 96,
+    tipo_prova: 1,
+    numero: 7,
+    banca: 'FGV',
+    ano: 2026,
+    enunciado: 'Questão de teste do refazer: prescrição intercorrente.',
+    alternativas: ['refazer A', 'refazer B', 'refazer C', 'refazer D'],
+    gabarito: 2,
+    anulada: false,
+    disciplina: 'Direito Civil',
+    tema: 'Prescrição',
+    explicacao: 'Comentário de teste do refazer.',
+    explicacao_fonte: 'ia',
+    revisada: false,
+  };
+
+  // Como o estudo-service devolve: da mais recente para a mais antiga. A
+  // última tentativa é a errada (A), então a questão cai em "Errei".
+  const TENTATIVAS = [
+    { id: 'e2e-refazer-1', questao_id: '9601', respondida_em: '2026-08-02T08:00:00.000Z', alternativa: 0, correta: false, tempo_seg: 50 },
+  ];
+
+  async function simularServidor(page) {
+    const posts = [];
+    await page.route('**/api/questoes*', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([QUESTAO]) }));
+    await page.route('**/api/tentativas*', (rota) => {
+      if (rota.request().method() === 'POST') {
+        const corpo = rota.request().postDataJSON();
+        posts.push(corpo);
+        return rota.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: `e2e-refazer-novo-${posts.length}`, ...corpo, respondida_em: new Date().toISOString() }),
+        });
+      }
+      return rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TENTATIVAS) });
+    });
+    return posts;
+  }
+
+  test('riscar não grava, confirmar grava uma vez, mostra o resultado e o resumo', async ({ page }) => {
+    const posts = await simularServidor(page);
+    await entrar(page);
+    await page.click('[data-testid="nav-revisoes"]');
+
+    await expect(page.locator('[data-testid="revisao-item-9601"]')).toBeVisible();
+    await page.click('[data-testid="revisar-9601"]');
+
+    const modal = page.locator('[data-testid="ver-questao-modal"]');
+    await expect(modal).toBeVisible();
+
+    // Abriu JÁ refazendo: gabarito, comentário e "Por que errei?" escondidos
+    // atrás do painel travado.
+    await expect(modal.locator('[data-testid="gabarito-travado"]')).toBeVisible();
+    await expect(modal.locator('[data-testid="gabarito-comentado"]')).toHaveCount(0);
+    await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).not.toContainText('Gabarito');
+    await expect(modal.locator('[data-testid="confirmar-resposta"]')).toBeDisabled();
+
+    // Riscar é anotação: alterna o risco e não responde nem grava.
+    const tesoura = modal.locator('[data-testid="riscar-1"]');
+    await tesoura.click();
+    await expect(tesoura).toHaveAttribute('aria-pressed', 'true');
+    await expect(modal.locator('[data-testid="resultado-refazer"]')).toHaveCount(0);
+    expect(posts).toHaveLength(0);
+
+    // Marca a certa (C) e confirma. O botão só habilita com uma marcada.
+    await modal.locator('[data-testid="ver-questao-alternativa-2"]').click();
+    await expect(modal.locator('[data-testid="confirmar-resposta"]')).toBeEnabled();
+    expect(posts).toHaveLength(0);
+    await modal.locator('[data-testid="confirmar-resposta"]').click();
+
+    await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Errei.');
+    await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).toContainText('Sua resposta agora');
+
+    // Exatamente um POST, com a alternativa marcada e a origem da revisão.
+    await expect.poll(() => posts.length).toBe(1);
+    expect(posts[0]).toMatchObject({ questao_id: '9601', alternativa: 2, correta: true, origem: 'revisao' });
+
+    // Acertar tira a questão de "Errei" na lista viva, mas a sequência do
+    // modal está congelada: ele continua aberto e na mesma questão.
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('[data-testid="ver-questao-enunciado"]')).toContainText(QUESTAO.enunciado);
+
+    // Última da sequência: "Concluir" mostra o resumo da sessão.
+    await modal.locator('[data-testid="ver-questao-concluir"]').click();
+    const resumo = modal.locator('[data-testid="resumo-refazer"]');
+    await expect(resumo).toContainText('Você refez 1');
+    await expect(resumo).toContainText('acertou 1');
+    await expect(resumo).toContainText('0 continuam em Errei');
+
+    await modal.locator('[data-testid="resumo-voltar"]').click();
+    await expect(modal).toHaveCount(0);
   });
 });
 
