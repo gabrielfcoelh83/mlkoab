@@ -654,7 +654,7 @@ const QUESTOES_DA_PROVA = 80;
 const DURACAO_DA_PROVA_SEG = 5 * 60 * 60;
 
 const COLUNAS_SIMULADO = `
-  id::int AS id, exame, tipo, status, refeito, iniciado_em, finalizado_em,
+  id::int AS id, modalidade, exame, tipo, questoes, status, refeito, iniciado_em, finalizado_em,
   acertos, anuladas,
   CASE WHEN status = 'finalizado' THEN acertos + anuladas END AS nota,
   EXTRACT(EPOCH FROM finalizado_em - iniciado_em)::int AS duracao_seg,
@@ -667,11 +667,40 @@ function lerInteiroNaFaixa(v, min, max) {
   return Number.isInteger(v) && v >= min && v <= max ? v : null;
 }
 
+// Teto do id de questão: os do acervo são numéricos e os antigos gerados por
+// IA têm ~30 caracteres. Só barra lixo, não valida contra o acervo (que mora
+// no questoes_db).
+const ID_DE_QUESTAO_MAX = 64;
+
+// Lista de questões do simulado geral: 1 a 80 ids de texto, sem repetir. A
+// ordem é a do sorteio e é guardada como veio.
+function lerQuestoesDoSimulado(v) {
+  if (!Array.isArray(v) || v.length < 1 || v.length > QUESTOES_DA_PROVA) return null;
+  const ids = v.map((id) => (typeof id === 'number' && Number.isInteger(id) ? String(id) : id));
+  const validos = ids.every(
+    (id) => typeof id === 'string' && id.trim() !== '' && id.length <= ID_DE_QUESTAO_MAX
+  );
+  if (!validos || new Set(ids).size !== ids.length) return null;
+  return ids;
+}
+
 // ───────────────────────────────────────────────────────────────
-// POST /simulados — abre um simulado { exame, tipo }
+// POST /simulados — abre um simulado
+//   prova real:     { exame, tipo }  (modalidade ausente ou 'prova')
+//   simulado geral: { modalidade: 'geral', questoes: [ids] }
 // ───────────────────────────────────────────────────────────────
+//
+// O geral nasce no front, que sorteia do acervo; aqui fica a ordem, para a
+// pessoa rever a prova depois e refazer só os erros. As respostas entram por
+// POST /tentativas com `simulado_id`, igual à prova real.
 app.post('/simulados', verifyToken, async (req, res) => {
   const corpo = req.body || {};
+  const modalidade = corpo.modalidade ?? 'prova';
+  if (modalidade !== 'prova' && modalidade !== 'geral') {
+    return res.status(400).json({ error: "modalidade deve ser 'prova' ou 'geral'" });
+  }
+  if (modalidade === 'geral') return abrirSimuladoGeral(req, res, corpo);
+
   const exame = lerInteiroNaFaixa(corpo.exame, 1, 32767);
   const tipo = lerInteiroNaFaixa(corpo.tipo, 1, 4);
   if (exame === null) {
@@ -703,27 +732,52 @@ app.post('/simulados', verifyToken, async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (error) {
-    // O índice único parcial é quem garante um aberto por pessoa. O id do
-    // aberto vai na resposta para o front oferecer "continuar" em vez de
-    // só dizer não.
-    //
-    // O `.catch` não é enfeite: um erro lançado aqui dentro escaparia do
-    // handler, e o Express 4 não trata rejeição de função async.
-    if (error.code === '23505') {
-      const { rows } = await pool
-        .query(`SELECT id::int AS id FROM simulados WHERE user_id = $1 AND status = 'aberto'`, [
-          req.user.id,
-        ])
-        .catch(() => ({ rows: [] }));
-      return res.status(409).json({
-        error: 'Já existe um simulado aberto',
-        simulado_id: rows[0]?.id ?? null,
-      });
-    }
-    console.error('Erro ao abrir simulado:', error);
-    res.status(500).json({ error: 'Erro ao abrir simulado' });
+    await responderErroAoAbrir(req, res, error);
   }
 });
+
+// O índice único parcial vale para as duas modalidades: um simulado aberto
+// por pessoa, seja prova real ou geral.
+async function abrirSimuladoGeral(req, res, corpo) {
+  const questoes = lerQuestoesDoSimulado(corpo.questoes);
+  if (questoes === null) {
+    return res.status(400).json({
+      error: `questoes deve ser uma lista de 1 a ${QUESTOES_DA_PROVA} ids distintos`,
+    });
+  }
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO simulados (user_id, modalidade, questoes)
+       VALUES ($1, 'geral', $2)
+       RETURNING ${COLUNAS_SIMULADO}`,
+      [req.user.id, questoes]
+    );
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    await responderErroAoAbrir(req, res, error);
+  }
+}
+
+// O índice único parcial é quem garante um aberto por pessoa. O id do aberto
+// vai na resposta para o front oferecer "continuar" em vez de só dizer não.
+//
+// O `.catch` não é enfeite: um erro lançado aqui dentro escaparia do
+// handler, e o Express 4 não trata rejeição de função async.
+async function responderErroAoAbrir(req, res, error) {
+  if (error.code === '23505') {
+    const { rows } = await pool
+      .query(`SELECT id::int AS id FROM simulados WHERE user_id = $1 AND status = 'aberto'`, [
+        req.user.id,
+      ])
+      .catch(() => ({ rows: [] }));
+    return res.status(409).json({
+      error: 'Já existe um simulado aberto',
+      simulado_id: rows[0]?.id ?? null,
+    });
+  }
+  console.error('Erro ao abrir simulado:', error);
+  res.status(500).json({ error: 'Erro ao abrir simulado' });
+}
 
 // ───────────────────────────────────────────────────────────────
 // GET /simulados?limite=N&offset=N&paginado=1 — histórico do próprio
