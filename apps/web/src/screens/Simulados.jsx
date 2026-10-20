@@ -4,7 +4,8 @@ import { ICONE_POR_DISCIPLINA } from '../lib/navegacao';
 import { corrigirSimulado, respostasParaRegistrar, situacaoDaResposta, sortearQuestoes, tempoDeProvaMinutos } from '../lib/simulado';
 import ConfigSimulado from '../components/ui/ConfigSimulado';
 import Cronometro from '../components/ui/Cronometro';
-import { GabaritoComentado, OrigemDaQuestao, TrilhaDaQuestao } from '../components/ui/CardDeQuestao';
+import { BotaoRiscar, GabaritoComentado, OrigemDaQuestao, TrilhaDaQuestao } from '../components/ui/CardDeQuestao';
+import { alternarRisco } from '../lib/cardDeQuestao';
 
 const LETRA = (i) => String.fromCharCode(65 + i);
 
@@ -26,6 +27,10 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
   const [resultado, setResultado] = useState(null);
   const [filtroRevisao, setFiltroRevisao] = useState('todas');
   const [configInicial, setConfigInicial] = useState(preDisciplina);
+  // Alternativas riscadas, por id da questão. Fora de `simulado` porque não é
+  // resposta: não entra na correção nem no que se grava, é só o rascunho de
+  // quem está eliminando alternativa — e some com o simulado.
+  const [riscadas, setRiscadas] = useState({});
 
   const QUESTOES = data.QUESTOES || [];
   const DISCIPLINAS = data.DISCIPLINAS || [];
@@ -65,8 +70,16 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
     });
     setResultado(null);
     setFiltroRevisao('todas');
+    setRiscadas({});
     setEtapa('execucao');
   };
+
+  // Riscar não responde: a alternativa riscada continua clicável e vale como
+  // resposta se a pessoa clicar nela, como no quiz.
+  const alternarRiscoDe = (questaoId) => (idx) => setRiscadas((prev) => ({
+    ...prev,
+    [questaoId]: alternarRisco(prev[questaoId], idx),
+  }));
 
   const selecionarResposta = (questaoId, respostaIdx) => {
     setSimulado((prev) => ({
@@ -356,37 +369,49 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
             <div role="radiogroup" aria-label={`Alternativas da questão ${i + 1}`} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {q.alternativas.map((alt, idx) => {
                 const escolhida = simulado.respostas[q.id] === idx;
+                const riscada = (riscadas[q.id] || []).includes(idx);
+                // A tesoura fica ao lado, e não dentro, da alternativa: botão
+                // não pode conter botão, e aqui a alternativa é um <button> de
+                // verdade (foco e Enter/Espaço nativos).
                 return (
-                  <button
-                    key={idx}
-                    role="radio"
-                    aria-checked={escolhida}
-                    data-testid={`alt-${idx}`}
-                    onClick={() => selecionarResposta(q.id, idx)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '13px 16px',
-                      borderRadius: 10,
-                      border: escolhida ? `1.5px solid ${theme.primary}` : '1px solid #e6e2da',
-                      background: escolhida ? theme.primarySoft : '#fff',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: 13.5,
-                      color: '#1c1b19',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%', flex: 'none',
-                      border: escolhida ? `5px solid ${theme.primary}` : '2px solid #d6d1c8',
-                      background: '#fff', boxSizing: 'border-box',
-                    }} />
-                    <b style={{ color: escolhida ? theme.primaryDark : '#7a766f', flex: 'none' }}>{LETRA(idx)})</b>
-                    <div>{alt}</div>
-                  </button>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      role="radio"
+                      aria-checked={escolhida}
+                      data-testid={`alt-${idx}`}
+                      onClick={() => selecionarResposta(q.id, idx)}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '13px 16px',
+                        borderRadius: 10,
+                        border: escolhida ? `1.5px solid ${theme.primary}` : '1px solid #e6e2da',
+                        background: escolhida ? theme.primarySoft : '#fff',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: 13.5,
+                        color: '#1c1b19',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{
+                        width: 18, height: 18, borderRadius: '50%', flex: 'none',
+                        border: escolhida ? `5px solid ${theme.primary}` : '2px solid #d6d1c8',
+                        background: '#fff', boxSizing: 'border-box',
+                      }} />
+                      <b style={{ color: escolhida ? theme.primaryDark : '#7a766f', flex: 'none', opacity: riscada ? 0.5 : 1 }}>{LETRA(idx)})</b>
+                      <div
+                        data-riscada={riscada ? 'sim' : 'nao'}
+                        style={{ textDecoration: riscada ? 'line-through' : 'none', opacity: riscada ? 0.5 : 1 }}
+                      >
+                        {alt}
+                      </div>
+                    </button>
+                    <BotaoRiscar theme={theme} indice={idx} riscada={riscada} onAlternar={alternarRiscoDe(q.id)} />
+                  </div>
                 );
               })}
             </div>
