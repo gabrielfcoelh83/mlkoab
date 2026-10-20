@@ -1,4 +1,5 @@
 import { paraQuestaoDeTela } from '../questions/acervo.js';
+import { normalizarMarcador } from '../marcadores.js';
 import { paraPagina, percorrerPaginas } from './paginas.js';
 import { repetirEm429 } from './retentativa.js';
 
@@ -477,6 +478,42 @@ export async function anotarMotivoDoErro({ tentativaId, motivo, nota }) {
   });
 
   return paraFormatoLocal(linha);
+}
+
+// ---------------------------------------------------------------------------
+// Marcadores das questões
+// ---------------------------------------------------------------------------
+//
+// Um marcador por questão e conta, como no estudo-service: o PUT substitui o
+// anterior (inclusive o motivo), e é assim que a tela garante que nunca há
+// dois. A lista já vem com o tipo; a nota só existe em "Dúvida".
+
+export async function listarMarcadores(tipo) {
+  const params = new URLSearchParams();
+  if (tipo) params.set('tipo', tipo);
+
+  const dados = await req(`/api/marcadores${params.size ? `?${params}` : ''}`);
+  const linhas = Array.isArray(dados) ? dados : [];
+  return linhas.map(normalizarMarcador).filter(Boolean);
+}
+
+export async function salvarMarcador(questaoId, { tipo, nota } = {}) {
+  const linha = await req(`/api/marcadores/${encodeURIComponent(questaoId)}`, {
+    method: 'PUT',
+    body: {
+      tipo,
+      // O servidor recusa texto de outro tipo e trata vazio como "sem nota".
+      // Mandar null explicitamente também limpa a nota de uma Dúvida anterior.
+      nota: nota && nota.trim() ? nota.trim() : null,
+    },
+  });
+
+  return normalizarMarcador(linha);
+}
+
+export async function apagarMarcador(questaoId) {
+  // 204 sem corpo: não há o que traduzir, e o DELETE é idempotente.
+  await req(`/api/marcadores/${encodeURIComponent(questaoId)}`, { method: 'DELETE' });
 }
 
 // ---------------------------------------------------------------------------

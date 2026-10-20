@@ -10,13 +10,15 @@ import { diasAteProva, metaDiaria, sequenciaAtual } from './lib/metrics';
 import { montarDisciplinas } from './lib/disciplinas';
 import { planoDaSemana, diasDeEstudoDaFicha, blocoDeEstudo, retornoDoGoogle } from './lib/agenda';
 import { tamanhoDoQuiz, sortearQuiz } from './lib/quiz';
-import { classificarRevisao } from './lib/revisao';
+import { classificarRevisao, ultimaTentativa } from './lib/revisao';
+import { indexarMarcadores, migrarEstrelas } from './lib/marcadores';
 import { mesclarTentativas, substituirTentativa } from './lib/historico';
 import { enviarEmFila } from './lib/fila';
 import { payloadDoToken, saudacao, nomeDeExibicao } from './lib/perfil';
 import {
   TOKEN_KEY, getToken, logout, listarTentativas, listarQuestoes, registrarTentativa,
   buscarPerfil, salvarPerfil, salvarRespostaDiscursiva, anotarMotivoDoErro,
+  listarMarcadores, salvarMarcador as salvarMarcadorNaApi, apagarMarcador as apagarMarcadorNaApi,
 } from './lib/api/api';
 import SeletorDeFase from './components/ui/SeletorDeFase';
 import UserMenu from './components/ui/user-menu';
@@ -138,6 +140,10 @@ export default function App() {
   // carga que saiu antes dela.
   const [salvasNaSessao, setSalvasNaSessao] = useState({});
   const [usuarioTentativas, setUsuarioTentativas] = useState({});
+  // Marcadores são do servidor (GET /api/marcadores), não da interface: ficam
+  // em memória como as tentativas. A chave é o id da questão em texto, porque
+  // o estudo-service guarda `questao_id` como TEXT.
+  const [marcadores, setMarcadores] = useState({});
   const [perfil, setPerfil] = useState(PERFIL_VAZIO);
   // A ficha continua na tela depois de gravada, para mostrar "Tudo pronto"
   // até a pessoa clicar em "Começar a estudar". Sem isto, o perfil voltando
@@ -171,6 +177,17 @@ export default function App() {
   // `encerrarSessao`, que é por onde passam o "Sair" e o 401.
   const sessaoEpoch = useRef(0);
 
+  // Leitura síncrona do que está na tela para as ações otimistas: o handler
+  // precisa do marcador anterior (para desfazer) e do índice já carregado (para
+  // a migração não sobrescrever um motivo escolhido enquanto ela roda).
+  const marcadoresAtuais = useRef({});
+  marcadoresAtuais.current = marcadores;
+  const favoritosAtuais = useRef(state.favoritos);
+  favoritosAtuais.current = state.favoritos;
+  // Uma resposta atrasada de um PUT antigo não pode desfazer a escolha mais
+  // recente da mesma questão.
+  const versoesDeMarcador = useRef({});
+
   // As gravações de `profile_data` (meta, data da prova, ficha) entram numa
   // fila de um só: quem edita a meta e logo em seguida a data da prova
   // dispara dois PUT, e sem a fila eles correm soltos — se o primeiro chegar
@@ -202,6 +219,8 @@ export default function App() {
     sessaoEpoch.current += 1;
     filaDePreferencias.current = novaFilaDePreferencias();
     setUsuarioTentativas({});
+    setMarcadores({});
+    marcadoresAtuais.current = {};
     setSalvasNaSessao({});
     setPerfil(PERFIL_VAZIO);
     perfilEstado.current = 'carregando';
@@ -385,6 +404,73 @@ export default function App() {
     return () => { cancelado = true; };
   }, [sessao, encerrarSessao]);
 
+  // ---- Marcadores ----
+  useEffect(() => {
+    if (sessao !== 'ativa') return undefined;
+
+    let cancelado = false;
+    const epoch = sessaoEpoch.current;
+    setMarcadores({});
+    marcadoresAtuais.current = {};
+
+    const carregar = async () => {
+      try {
+        const lista = await listarMarcadores();
+        if (cancelado || sessaoEpoch.current !== epoch) return;
+
+        const indice = indexarMarcadores(lista);
+        setMarcadores(indice);
+        marcadoresAtuais.current = indice;
+
+        // As estrelas antigas só migram depois de a lista responder, e só as
+        // questões que ainda não têm marcador (`migrarEstrelas`). Cada PUT
+        // confirmado entra no índice; um erro de rede mantém `favoritos` para
+        // o próximo login, sem apagar nada antes de gravar.
+        const resultado = await migrarEstrelas(
+          favoritosAtuais.current,
+          indice,
+          async (id) => {
+            if (cancelado || sessaoEpoch.current !== epoch) throw new Error('sessão encerrada');
+
+            let salvo;
+            try {
+              salvo = await salvarMarcadorNaApi(id, { tipo: 'refazer', nota: null });
+            } catch (err) {
+              if (err.status === 401) encerrarSessao();
+              throw err;
+            }
+
+            if (cancelado || sessaoEpoch.current !== epoch) throw new Error('sessão encerrada');
+            const proximo = { ...marcadoresAtuais.current, [String(id)]: salvo };
+            marcadoresAtuais.current = proximo;
+            setMarcadores(proximo);
+          },
+        );
+
+        if (cancelado || sessaoEpoch.current !== epoch) return;
+
+        if (resultado.falhas.length > 0) {
+          const n = resultado.falhas.length;
+          setErroSync(
+            `Não foi possível migrar ${n} ${n === 1 ? 'favorito' : 'favoritos'} para marcador. Vamos tentar de novo no próximo acesso.`,
+          );
+        } else if (favoritosAtuais.current.length > 0) {
+          setState((st) => ({ ...st, favoritos: [] }));
+        }
+      } catch (err) {
+        if (cancelado) return;
+        if (err.status === 401) { encerrarSessao(); return; }
+        setMarcadores({});
+        marcadoresAtuais.current = {};
+        setErroSync(`Não foi possível carregar seus marcadores: ${err.message}`);
+      }
+    };
+
+    carregar();
+
+    return () => { cancelado = true; };
+  }, [sessao, encerrarSessao]);
+
   // ---- Acervo ----
   useEffect(() => {
     if (sessao !== 'ativa') return undefined;
@@ -420,8 +506,8 @@ export default function App() {
   );
 
   const revisao = useMemo(
-    () => classificarRevisao(acervo.questoes, usuarioTentativas, state.favoritos),
-    [acervo.questoes, usuarioTentativas, state.favoritos]
+    () => classificarRevisao(acervo.questoes, usuarioTentativas, marcadores),
+    [acervo.questoes, usuarioTentativas, marcadores]
   );
 
   const DATA = useMemo(
@@ -436,14 +522,6 @@ export default function App() {
   };
   const updateSlice = (key, partial) =>
     setState((st) => ({ ...st, [key]: typeof partial === 'function' ? partial(st[key]) : { ...st[key], ...partial } }));
-
-  const toggleFavorito = (id) =>
-    setState((st) => ({
-      ...st,
-      favoritos: st.favoritos.map(String).includes(String(id))
-        ? st.favoritos.filter((x) => String(x) !== String(id))
-        : [...st.favoritos, id],
-    }));
 
   const setTheme = (themeKey) => setState((st) => ({ ...st, theme: themeKey }));
 
@@ -727,6 +805,84 @@ export default function App() {
       if (sessaoEpoch.current !== epoch) return null;
       if (err.status === 401) { encerrarSessao(); return null; }
       return `O motivo não foi salvo: ${err.message}`;
+    }
+  };
+
+  // Marcadores: otimistas, como o tema, mas com desfazer. O estado muda antes
+  // da rede porque o clique na bandeira é a resposta visual do menu; se o PUT
+  // falhar, o marcador anterior volta e a faixa de erro diz o que aconteceu.
+  const definirMarcadorLocal = (id, valor) => {
+    setMarcadores((atual) => {
+      const proximo = { ...atual };
+      if (valor) proximo[id] = valor;
+      else delete proximo[id];
+      return proximo;
+    });
+
+    const proximo = { ...marcadoresAtuais.current };
+    if (valor) proximo[id] = valor;
+    else delete proximo[id];
+    marcadoresAtuais.current = proximo;
+  };
+
+  // "Não sabia" numa questão errada sem motivo já responde "Por que errei?"
+  // com `nao-conhecia`: são a mesma informação, e pedir duas vezes é atrito.
+  const preencherMotivoNaoSabia = (questaoId) => {
+    const ultima = ultimaTentativa(usuarioTentativas, questaoId);
+    if (!ultima || ultima.correta === true || ultima.id == null || ultima.motivo) return;
+
+    void anotarMotivo(questaoId, ultima.id, { motivo: 'nao-conhecia', nota: '' })
+      .then((erro) => { if (erro) setErroSync(erro); });
+  };
+
+  const definirMarcador = async (questaoId, { tipo, nota } = {}) => {
+    if (!tipo) return null;
+    const id = String(questaoId);
+    if (id.trim() === '') return null;
+
+    const epoch = sessaoEpoch.current;
+    const anterior = marcadoresAtuais.current[id] || null;
+    const texto = typeof nota === 'string' && nota.trim() ? nota.trim() : null;
+    const versao = (versoesDeMarcador.current[id] || 0) + 1;
+    versoesDeMarcador.current[id] = versao;
+
+    definirMarcadorLocal(id, { questaoId: id, tipo, nota: texto });
+    if (tipo === 'nao_sabia') preencherMotivoNaoSabia(questaoId);
+
+    try {
+      const salvo = await salvarMarcadorNaApi(questaoId, { tipo, nota: texto });
+      if (sessaoEpoch.current !== epoch) return salvo;
+      // Uma troca mais nova desta mesma questão já assumiu o estado.
+      if (versoesDeMarcador.current[id] === versao) definirMarcadorLocal(id, salvo);
+      return salvo;
+    } catch (err) {
+      if (sessaoEpoch.current !== epoch) return null;
+      if (err.status === 401) { encerrarSessao(); return null; }
+      if (versoesDeMarcador.current[id] === versao) definirMarcadorLocal(id, anterior);
+      setErroSync(`O marcador não foi salvo: ${err.message}`);
+      return null;
+    }
+  };
+
+  const removerMarcador = async (questaoId) => {
+    const id = String(questaoId);
+    const epoch = sessaoEpoch.current;
+    const anterior = marcadoresAtuais.current[id] || null;
+    if (!anterior) return null;
+
+    const versao = (versoesDeMarcador.current[id] || 0) + 1;
+    versoesDeMarcador.current[id] = versao;
+    definirMarcadorLocal(id, null);
+
+    try {
+      await apagarMarcadorNaApi(questaoId);
+      return true;
+    } catch (err) {
+      if (sessaoEpoch.current !== epoch) return false;
+      if (err.status === 401) { encerrarSessao(); return false; }
+      if (versoesDeMarcador.current[id] === versao) definirMarcadorLocal(id, anterior);
+      setErroSync(`O marcador não foi removido: ${err.message}`);
+      return false;
     }
   };
 
@@ -1097,6 +1253,7 @@ export default function App() {
   const screenProps = {
     theme, s, data: DATA, go: goTo,
     usuarioTentativas, disciplinas, revisao,
+    marcadores, definirMarcador, removerMarcador,
     resultados_historico: state.resultados_historico,
     config: state.configuracoes,
     revisarQuestoes, praticarDisciplina, dificuldades,
@@ -1331,8 +1488,6 @@ export default function App() {
               {...screenProps}
               rev={state.revisoes}
               setRev={(p) => updateSlice('revisoes', p)}
-              favoritos={state.favoritos}
-              toggleFavorito={toggleFavorito}
               registrar={registrar}
               anotarMotivo={anotarMotivo}
             />
@@ -1355,7 +1510,7 @@ export default function App() {
             <Anotacoes {...screenProps} notas={state.anotacoes} setNotas={(p) => updateSlice('anotacoes', p)} />
           )}
           {state.screen === 'favoritos' && (
-            <Favoritos {...screenProps} favoritos={state.favoritos} toggleFavorito={toggleFavorito} />
+            <Favoritos {...screenProps} />
           )}
           {state.screen === 'configuracoes' && (
             <Configuracoes

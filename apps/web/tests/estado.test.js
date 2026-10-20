@@ -181,7 +181,9 @@ const t = (correta, data = '2026-08-10T10:00:00Z', tempo = null) => ({ correta, 
     // '4' nunca respondida
   };
 
-  const r = classificarRevisao(questoes, tentativas, ['4']);
+  const r = classificarRevisao(questoes, tentativas, {
+    '4': { questaoId: '4', tipo: 'refazer', nota: null },
+  });
 
   const idsErrei = r.errei.map((x) => String(x.questao.id));
   exigir(!idsErrei.includes('1'), 'questão corrigida não pode continuar em "Errei"');
@@ -192,9 +194,11 @@ const t = (correta, data = '2026-08-10T10:00:00Z', tempo = null) => ({ correta, 
   // esquecida.
   exigir(idsErrei[0] === '3', `a mais antiga deveria vir primeiro, veio ${idsErrei[0]}`);
 
-  // Favorito guardado como string tem de casar com id vindo como número (e
-  // vice-versa) — é o mesmo id em dois formatos.
-  exigir(r.favoritas.length === 1 && String(r.favoritas[0].questao.id) === '4', 'favorito não casou por id');
+  // Marcador guardado com id em texto tem de casar com id vindo como número
+  // (e vice-versa) — é o mesmo id em dois formatos.
+  exigir(r.marcadas.length === 1 && String(r.marcadas[0].questao.id) === '4', 'marcador não casou por id');
+  exigir(r.marcadas[0].marcador?.tipo === 'refazer', 'o item da aba não carregou o marcador');
+  exigir(r.resumo.marcadores === 1, `esperado 1 marcador no resumo, veio ${r.resumo.marcadores}`);
 
   exigir(r.emAberto.length === 1, `esperada 1 em aberto, vieram ${r.emAberto.length}`);
   exigir(r.resumo.acertos === 1, `esperado 1 acerto, veio ${r.resumo.acertos}`);
@@ -203,7 +207,7 @@ const t = (correta, data = '2026-08-10T10:00:00Z', tempo = null) => ({ correta, 
   exigir(r.resumo.respondidas === 3, `esperadas 3 respondidas, vieram ${r.resumo.respondidas}`);
   exigir(r.resumo.acervo === 4, 'o resumo deveria contar o acervo inteiro');
 
-  // "Para revisar" junta erradas e favoritas sem repetir.
+  // "Para revisar" junta erradas e marcadas sem repetir.
   exigir(r.todas.length === 3, `esperadas 3 para revisar, vieram ${r.todas.length}`);
 
   const s2 = situacaoDaQuestao(tentativas, '2');

@@ -8,6 +8,7 @@ import { alternarRisco, historicoDaQuestao } from '../lib/cardDeQuestao';
 import {
   BotaoRiscar, GabaritoComentado, ListaDoHistorico, OrigemDaQuestao, SeloRespondida, TrilhaDaQuestao,
 } from '../components/ui/CardDeQuestao';
+import BotaoMarcador from '../components/ui/BotaoMarcador';
 
 const DIFICULDADE_COR = { 'Fácil': '#4A7A4A', 'Média': '#B07A1F', 'Difícil': '#B4413A' };
 
@@ -109,7 +110,7 @@ function CadernoCard({ theme, s, testid, cor, selo, canto, titulo, descricao, da
   );
 }
 
-export default function Questoes({ theme, s, data, quest, setQuest, registrar, acervo, recarregarAcervo, usuarioTentativas, config, resultados_historico, materiaDeHoje }) {
+export default function Questoes({ theme, s, data, quest, setQuest, registrar, acervo, recarregarAcervo, usuarioTentativas, config, resultados_historico, materiaDeHoje, marcadores, definirMarcador, removerMarcador }) {
   const [tempoInicio, setTempoInicio] = useState(null);
   // O que é só desta tela, para a questão aberta: as alternativas riscadas e
   // o histórico aberto ou fechado. Guardado com o id da questão, e não em
@@ -301,7 +302,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
   useEffect(() => {
     if (!respondendo && !corrigindo) return undefined;
     const aoTeclar = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const alvo = e.target;
       if (alvo && (alvo.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName))) return;
       const q = quest.quiz[quest.idx];
@@ -662,6 +663,15 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                 <OrigemDaQuestao questao={current} />
                 <TrilhaDaQuestao s={s} theme={theme} questao={current} />
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
+                  {definirMarcador && (
+                    <BotaoMarcador
+                      s={s}
+                      questaoId={current.id}
+                      marcador={marcadores?.[String(current.id)] || null}
+                      onSalvar={definirMarcador}
+                      onApagar={removerMarcador}
+                    />
+                  )}
                   <SeloRespondida
                     s={s}
                     theme={theme}

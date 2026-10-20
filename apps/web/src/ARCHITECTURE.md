@@ -45,7 +45,8 @@ src/
     ├── fila.js           # Envio um a um, que para quando a sessão acaba (respostas do simulado)
     ├── storage.js        # localStorage: estado da interface e dados por conta
     ├── metrics.js        # Meta diária, sequência, taxas, evolução, estatísticas
-    ├── revisao.js        # O que está errado / favoritado, refeitas do dia e agrupamento por disciplina
+    ├── revisao.js        # O que está errado / marcado, refeitas do dia e agrupamento por disciplina
+    ├── marcadores.js     # Motivos (chute, não sabia, refazer, dúvida), contagens e migração das estrelas
     ├── refazer.js        # Sequência congelada, resultado e resumo do refazer dentro do modal
     ├── disciplinas.js    # Disciplinas derivadas do acervo, cores, prioridade
     ├── agenda.js         # Plano da semana (folga, ritmo, bloco de estudo), calendário e eventos do Google Agenda
@@ -183,12 +184,12 @@ recarregar a página volta para ela — mas não há URL por tela.
 | — | `Login.jsx` | Entrar e criar conta | só `theme`, `s` e `onEntrar` — não recebe as comuns |
 | `dashboard` | `Dashboard.jsx` | Resumo do dia, próximo passo, evolução | `dash`, `setDash`, `acervo` |
 | `cronograma` | `Cronograma.jsx` | Sugestão de semana, calendário e Google Agenda (ver "Cronograma") | `diasDeEstudo`, `bloco`, `salvarAgenda`, `perfilCarregado`, `sessaoExpirou` |
-| `questoes` | `Questoes.jsx` | Meta do dia, cadernos por matéria e quiz (ver "Questões") | `quest`, `setQuest`, `registrar`, `acervo`, `recarregarAcervo` |
+| `questoes` | `Questoes.jsx` | Meta do dia, cadernos por matéria e quiz (ver "Questões") | `quest`, `setQuest`, `registrar`, `acervo`, `recarregarAcervo`, `marcadores`, `definirMarcador`, `removerMarcador` |
 | `simulados` | `Simulados.jsx` | Hub, formulário, prova e resultado do simulado (ver "Simulados") | `sim`, `setSim`, `setResultadosHistorico`, `registrarRespostas`, `acervo`, `recarregarAcervo` |
-| `revisoes` | `Revisoes.jsx` | Erradas, favoritas e menor desempenho, agrupadas por disciplina; busca, filtro e modal de leitura/refazer | `rev`, `setRev`, `favoritos`, `toggleFavorito`, `registrar`, `anotarMotivo` |
+| `revisoes` | `Revisoes.jsx` | Erradas, marcadores e menor desempenho, agrupadas por disciplina; busca, filtro e modal de leitura/refazer | `rev`, `setRev`, `marcadores`, `definirMarcador`, `removerMarcador`, `registrar`, `anotarMotivo` |
 | `desempenho` | `Desempenho.jsx` | Evolução ao longo do tempo | `perf`, `setPerf` |
 | `estatisticas` | `Estatisticas.jsx` | Números por período e disciplina | `filtros`, `setFiltros` |
-| `favoritos` | `Favoritos.jsx` | Questões marcadas com estrela | `toggleFavorito` (recebe `favoritos` mas não usa; lê de `revisao`) |
+| `favoritos` | `Favoritos.jsx` | Questões com qualquer marcador, com o chip do motivo | lê de `revisao.marcadas`; usa `definirMarcador`/`removerMarcador` |
 | `disciplinas` | `Disciplinas.jsx` | Aproveitamento por matéria e tema | `disc`, `setDisc`, `simularDisciplina` |
 | `anotacoes` | `Anotacoes.jsx` | Notas com pastas e tags | `notas`, `setNotas` |
 | `configuracoes` | `Configuracoes.jsx` | Nome, meta, data da prova, "Meu perfil de estudo", tema | `perfil`, `nome`, `atualizarNome`, `atualizarConfig`, `themeKey`, `setTheme`, `salvarFicha`, `fase`, `opcoesDeDificuldade`, `acervoCarregando`, `ancora`/`ancoraUsada` |
@@ -347,9 +348,10 @@ linha própria no proxy do Vite):
 
 ### Revisões (Caderno de Erros)
 
-A tela serve ao erro. São três abas — "Errei" (a padrão), "Favoritas" e
+A tela serve ao erro. São três abas — "Errei" (a padrão), "Marcadores" e
 "Menor desempenho"; um `rev.tab` antigo (`todas`/`aberto`) cai em "Errei" pelo
-fallback de `ABAS[0]` em `Revisoes.jsx`, sem migração do localStorage.
+fallback de `ABAS[0]` em `Revisoes.jsx`, e o antigo `favoritas` cai em
+"Marcadores" sem reescrever o localStorage.
 
 - **Topo:** "Errei na última vez" (`resumo.erros`, com os sem motivo),
   "Refeitas hoje" (`refeitasHoje`, `lib/revisao.js`) e "Acertei na última vez"
@@ -359,18 +361,38 @@ fallback de `ABAS[0]` em `Revisoes.jsx`, sem migração do localStorage.
 - **Lista:** `agruparPorDisciplina` mantém a ordem da aba e cria um grupo por
   disciplina (vazia vira "Sem classificação"). Cada grupo tem a contagem, os
   erros sem motivo (na aba "Errei") e "Refazer as N".
+- **Marcadores:** a aba lista as questões com qualquer marcador, agrupadas
+  como as outras. Os chips "Todas (n)" e um por tipo (`contarPorTipo`) filtram
+  a lista; a legenda "Como funcionam os marcadores" é um `<details>` aberto na
+  primeira visita (flag `ma-questoes-marcadores-legenda-v1` no localStorage).
 - **Busca e filtro:** estado local, sem persistir. A busca usa `normalizar`
   (`lib/texto.js`) no enunciado e no tema; o select lista as disciplinas da
   aba. Os dois filtram o topo e os grupos.
 - **Cartão:** tema como título (ou procedência, quando vazio), procedência e
-  acertos/tentativas, enunciado em duas linhas, estrela e "Refazer", sem o
-  pill de situação. O rodapé traz "Ver questão e gabarito".
+  acertos/tentativas, enunciado em duas linhas, bandeira de marcador e
+  "Refazer", sem o pill de situação. O rodapé traz "Ver questão e gabarito".
+  Na aba "Marcadores", o cartão mostra o chip do motivo e, em Dúvida com nota,
+  "Sua dúvida: …".
 
 `VerQuestao.tsx` (novo, em TypeScript) é o modal da questão: tema,
 procedência, posição, alternativas com gabarito e a resposta da última
 tentativa (com rótulos distintos quando são a mesma), `GabaritoComentado` e o
 `MotivoDoErro`. Navega pela lista visível, na disciplina da questão ou em
-todas; Esc e o fundo fecham, e o foco volta ao botão que abriu.
+todas; Esc e o fundo fecham, e o foco volta ao botão que abriu. O cabeçalho
+traz a mesma bandeira do quiz; no fim do Refazer, se a questão acertada tinha
+marcador, aparece "Ela está marcada como X. Tirar o marcador?" com "Tirar" e
+"Manter" — nada sai sozinho.
+
+`BotaoMarcador.tsx` (strict) é a bandeira que substituiu a estrela: contorno
+cinza sem marcador, preenchida na cor do tipo com marcador. Abre um menu
+(`aria-haspopup="menu"`) com os quatro motivos como `menuitemradio` — bolinha,
+ícone, rótulo e descrição —, "Tirar o marcador" quando existe e, em Dúvida, o
+campo "Qual foi a dúvida? (opcional)". Setas navegam, Esc fecha e devolve o
+foco, clique fora fecha. A primeira abertura mostra a explicação (flag
+`ma-questoes-marcador-dica-v1`). A bandeira aparece no quiz, nos cartões de
+Revisões e da tela do menu, e no cabeçalho do modal; a cor nunca aparece
+sozinha, sempre com ícone e rótulo (`TIPOS_DE_MARCADOR`, em
+`lib/marcadores.js`).
 
 **Refazer dentro do modal.** "Refazer" do cartão, "Refazer as N" do grupo e o
 do topo abrem o modal **já no modo refazer** — no item escolhido, no primeiro
@@ -488,9 +510,9 @@ tipos é o que fazia uma gravação que falhou divergir em silêncio do servidor
 
 | Tipo | Onde fica | Persistência | Conteúdo |
 |---|---|---|---|
-| Interface | `state` (`DEFAULT_STATE`) | localStorage (`ma-questoes-state-v1`) | tema, fase, tela atual, filtros de cada tela, quiz em andamento, questão discursiva aberta, favoritos, anotações, histórico de simulado, rascunhos discursivos |
-| Conta | cópia de quatro fatias de `state` | localStorage (`ma-questoes-conta-v1:<id>`), uma chave por conta | favoritos, anotações (só as notas), histórico de simulado e rascunhos discursivos (`segundaFase` sem a questão aberta) — ver "Dados da conta" |
-| Servidor | `useState` próprios | nenhuma — recarregados a cada sessão | `acervo`, `usuarioTentativas`, `perfil`; na `SegundaFase`, a lista, a questão aberta e a última resposta, recarregadas a cada visita |
+| Interface | `state` (`DEFAULT_STATE`) | localStorage (`ma-questoes-state-v1`) | tema, fase, tela atual, filtros de cada tela, quiz em andamento, questão discursiva aberta, estrelas antigas (`favoritos`, até migrarem), anotações, histórico de simulado, rascunhos discursivos |
+| Conta | cópia de quatro fatias de `state` | localStorage (`ma-questoes-conta-v1:<id>`), uma chave por conta | estrelas antigas (`favoritos`, só até a migração), anotações (só as notas), histórico de simulado e rascunhos discursivos (`segundaFase` sem a questão aberta) — ver "Dados da conta" |
+| Servidor | `useState` próprios | nenhuma — recarregados a cada sessão | `acervo`, `usuarioTentativas`, `marcadores`, `perfil`; na `SegundaFase`, a lista, a questão aberta e a última resposta, recarregadas a cada visita |
 | Sessão | `useState` próprio | deriva do token salvo (`ma-questoes-token-v1`) | `sessao` (`'ativa'` / `'ausente'`) |
 | Aviso | `useState` próprio | nenhuma | `erroSync`, a faixa de erro do topo |
 
@@ -517,7 +539,7 @@ const DEFAULT_STATE = {
   estatisticas: { range: '30d', disc: 'Todas' },
   disciplinas: { openNome: null },
   anotacoes: { folder: 'Todas', activeId: null, itens: [] },
-  favoritos: [],
+  favoritos: [],  // estrelas antigas; viram marcador `refazer` na 1ª carga e a chave esvazia
   configuracoes: { meta: 20, dataProva: null },
   resultados_historico: [],  // histórico real dos simulados
   segundaFase: { questaoId: null, rascunhos: {} },  // rascunhos: { [id]: { A: '…' } }
@@ -548,17 +570,23 @@ Regras que o código já garante:
 
 ### Dados da conta
 
-Favoritos, anotações, histórico de simulado e rascunhos discursivos
-(`segundaFase.rascunhos`, texto ainda não conferido) não têm rota na API. Além de
-viverem em `state`, ficam numa chave por conta, gravada pelo mesmo efeito que
-grava o estado da interface (`salvarDadosDaConta`, em `storage.js`):
+Estrelas antigas (`favoritos`), anotações, histórico de simulado e rascunhos
+discursivos (`segundaFase.rascunhos`, texto ainda não conferido) não têm rota
+na API. Além de viverem em `state`, ficam numa chave por conta, gravada pelo
+mesmo efeito que grava o estado da interface (`salvarDadosDaConta`, em
+`storage.js`):
 
+- **As estrelas antigas são temporárias:** na primeira carga em que
+  `GET /api/marcadores` responde, `migrarEstrelas` grava `refazer` só nas
+  questões ainda sem marcador. Se todos os PUTs derem certo, `favoritos`
+  esvazia; se algum falhar, a lista fica inteira para a próxima sessão e o
+  erro aparece em `erroSync`. Nada é apagado antes da gravação confirmar.
 - **Sair não apaga**, e quem entra com outra conta no mesmo navegador não os
   vê na tela. Não é sigilo: a chave de outra conta segue legível nas
   ferramentas do navegador. A tela de Anotações avisa que as notas ficam no
   navegador depois de sair e sugere limpar os dados do site em computador
-  compartilhado; favoritos e histórico de simulado não têm aviso.
-- **Na abertura com a mesma conta, a chave vale** para essas três fatias. Com
+  compartilhado; o histórico de simulado não tem aviso.
+- **Na abertura com a mesma conta, a chave vale** para essas fatias. Com
   duas abas abertas, a desatualizada regrava o estado da interface a cada
   troca de tela; a chave só é gravada quando os dados da conta mudam
   (`ultimaGravacao`), então é ela que tem a versão mais nova.
@@ -672,7 +700,7 @@ erro do acervo aparece na própria tela de Questões, com botão de recarregar.
 | `listarTentativas` → `buscarPaginaDeTentativas` | `GET /api/tentativas?limite=1000&paginado=1[&offset=N]` | percorre as páginas até somar `total` (`percorrerPaginas`, teto de 50 páginas; passando dele, a lista vem cortada e o aviso vai só para o console), descarta repetidas pelo id, aceita o formato antigo (array) e agrupa por questão, em ordem cronológica. No `App`, a carga é mesclada com o que foi respondido enquanto ela corria (`mesclarTentativas`) |
 | `registrarTentativa` | `POST /api/tentativas` | manda `origem` (`'quiz'`, `'simulado'`; migration 007 do estudo-service); servidor anterior a ela ignora o campo |
 | `anotarMotivoDoErro` | `PATCH /api/tentativas/:id` | `{motivo, motivo_nota}` (migration 005); `null` limpa; nota até 280 caracteres, motivo até 40 |
-| — (ainda não usada pela tela) | `GET /api/marcadores?tipo=`, `PUT`/`DELETE /api/marcadores/:questaoId` | marcador por questão e usuário: `chute`, `nao_sabia`, `refazer` ou `duvida`, com nota opcional de até 280 caracteres. O PUT substitui (upsert), o DELETE é idempotente (204) |
+| `listarMarcadores(tipo?)`, `salvarMarcador(questaoId, { tipo, nota })`, `apagarMarcador(questaoId)` | `GET /api/marcadores?tipo=`, `PUT`/`DELETE /api/marcadores/:questaoId` | marcador por questão e usuário: `chute`, `nao_sabia`, `refazer` ou `duvida`, com nota opcional de até 280 caracteres. O PUT substitui (upsert): escolher outro tipo troca o motivo, nunca soma. O DELETE é idempotente (204). O `App` carrega a lista depois do login; salvar/apagar são otimistas (desfazem com aviso se a API falhar) |
 | `listarDiscursivas(area)` | `GET /api/discursivas?area=civil` | `[{id, exame, numero, area, resumo}]`; 404 (gateway sem a rota) vira acervo vazio na tela |
 | `buscarDiscursiva(id)` | `GET /api/discursivas/:id` | enunciado, `fonte` e `itens: [{letra, pergunta, valor, gabarito, distribuicao?}]`; item sem letra é descartado |
 | `salvarRespostaDiscursiva` | `POST /api/discursivas/respostas` | `{questao_id, respostas: {A: '…'}, fundamentos: {citados, esperados}}`; até 6000 caracteres por item, e `fundamentos` só com esses dois inteiros |
@@ -808,10 +836,10 @@ mostrou um dia a menos no Brasil com a CI verde.
 
 ### Lacunas conhecidas
 
-1. **Favoritos, anotações e histórico de simulado só existem no navegador** —
-   não há rota na API. Sair não os apaga mais (ver "Dados da conta"), mas
-   eles não acompanham a pessoa para outro navegador ou aparelho, e limpar os
-   dados do site os apaga de vez.
+1. **Anotações e histórico de simulado só existem no navegador** — não há rota
+   na API. Sair não os apaga mais (ver "Dados da conta"), mas eles não
+   acompanham a pessoa para outro navegador ou aparelho, e limpar os dados do
+   site os apaga de vez. Os marcadores já não entram aqui: ficam na conta.
 2. **Trocar o e-mail** não é possível pela tela de Configurações.
 3. **`api/_lib/auth.js` cai no gateway de produção** quando falta
    `VITE_API_URL`. Em produção é o valor certo; em dev, manda o token de
@@ -871,7 +899,6 @@ mostrou um dia a menos no Brasil com a CI verde.
 
 - `simulados.running` e `simulados.resultados_historico` não são lidos (o
   histórico usado é o `resultados_historico` da raiz).
-- `Favoritos.jsx` recebe `favoritos` do `App` e não usa.
 - `server/dev-api.js` tem 3000 como porta padrão (e o comentário do topo diz
   "Porta 3000"), a mesma do gateway.
 - `lib/api/index.js` e `lib/questions/index.js` sem uso.
