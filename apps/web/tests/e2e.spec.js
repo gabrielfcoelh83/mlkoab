@@ -1163,7 +1163,8 @@ test.describe('Revisões — refazer no modal', () => {
     await modal.locator('[data-testid="confirmar-resposta"]').click();
 
     await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Errei.');
-    await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).toContainText('Sua resposta agora');
+    // Acertou: a marcada é o próprio gabarito, e o rótulo é "Gabarito · sua resposta agora".
+    await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).toContainText('Gabarito · sua resposta agora');
 
     // Exatamente um POST, com a alternativa marcada e a origem da revisão.
     await expect.poll(() => posts.length).toBe(1);
