@@ -1,22 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../lib/icons';
 import { normalizar } from '../lib/texto';
 import { agruparPorDisciplina, refeitasHoje } from '../lib/revisao';
+import { TIPOS_DE_MARCADOR, contarPorTipo, dadosDoMarcador } from '../lib/marcadores';
 import { congelarSequencia } from '../lib/refazer';
 import MotivoDoErro from '../components/ui/MotivoDoErro';
 import VerQuestao from '../components/ui/VerQuestao';
+import BotaoMarcador from '../components/ui/BotaoMarcador';
 
 // A tela serve aos erros: a lista abre em "Errei" e cada grupo de disciplina
 // pode ser refeito de uma vez. As abas "Para revisar" e "Nunca respondi"
-// saíram — a primeira repetia erradas e favoritas, a segunda não é material de
+// saíram — a primeira repetia erradas e marcadas, a segunda não é material de
 // revisão. Um `rev.tab` antigo salvo no navegador cai em "Errei" pelo fallback
-// de `ABAS[0]`; o localStorage não precisa de migração.
+// de `ABAS[0]`, exceto o antigo "favoritas", que vira "Marcadores".
 
 const ABAS = [
   { key: 'errei', label: 'Errei', lista: (r) => r.errei },
-  { key: 'favoritas', label: 'Favoritas', lista: (r) => r.favoritas },
+  { key: 'marcadores', label: 'Marcadores', lista: (r) => r.marcadas },
   { key: 'menor', label: 'Menor desempenho', lista: (r) => r.menorDesempenho },
 ];
+
+const CHAVE_DA_LEGENDA = 'ma-questoes-marcadores-legenda-v1';
 
 const temaDaQuestao = (q) => q.topico || q.tema || '';
 
@@ -31,7 +35,7 @@ function metaDoCartao(item, abaKey) {
   if (q.exame) partes.push(`${q.exame}º Exame`);
   if (q.numero) partes.push(`questão ${q.numero}`);
   partes.push(`${item.acertos}/${item.tentativas} ${item.tentativas === 1 ? 'tentativa' : 'tentativas'}`);
-  if (abaKey === 'favoritas') {
+  if (abaKey === 'marcadores') {
     partes.push(item.situacao === 'errou'
       ? 'errou na última'
       : item.situacao === 'acertou' ? 'acertou na última' : 'sem tentativa');
@@ -47,7 +51,7 @@ function metaDoGrupo(abaKey, itensDoGrupo) {
     // O "sem motivo" só aparece quando há algum: zero vira ruído no cabeçalho.
     return semMotivo > 0 ? `${base} · ${semMotivo} sem motivo` : base;
   }
-  if (abaKey === 'favoritas') return `${n} ${n === 1 ? 'favorita' : 'favoritas'}`;
+  if (abaKey === 'marcadores') return `${n} ${n === 1 ? 'marcada' : 'marcadas'}`;
   return `${n} ${n === 1 ? 'questão' : 'questões'}`;
 }
 
@@ -61,16 +65,41 @@ function dot(c) {
   return { width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' };
 }
 
-export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavorito, revisao, disciplinas, registrar, anotarMotivo, usuarioTentativas }) {
+export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, registrar, anotarMotivo, usuarioTentativas, marcadores, definirMarcador, removerMarcador }) {
   const resumo = revisao.resumo;
-  const marcados = new Set((favoritos || []).map(String));
 
-  const aba = ABAS.find((a) => a.key === rev.tab) || ABAS[0];
+  // Um `rev.tab` antigo ("favoritas") abre a aba nova sem reescrever o estado
+  // salvo; o clique em qualquer aba já grava a chave atual.
+  const abaKey = rev.tab === 'favoritas' ? 'marcadores' : rev.tab;
+  const aba = ABAS.find((a) => a.key === abaKey) || ABAS[0];
   const itens = aba.lista(revisao) || [];
 
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todas');
+  const [filtroTipo, setFiltroTipo] = useState('todas');
   const [modal, setModal] = useState(null);
+  const [legendaAberta, setLegendaAberta] = useState(() => {
+    try {
+      return localStorage.getItem(CHAVE_DA_LEGENDA) !== '1';
+    } catch {
+      return true;
+    }
+  });
+
+  // A legenda é aberta na primeira visita à aba Marcadores; depois disso, o
+  // estado escolhido pela pessoa manda. A flag é gravada assim que a aba abre,
+  // mesmo que ela feche o bloco em seguida.
+  useEffect(() => {
+    if (aba.key !== 'marcadores') return;
+    try {
+      localStorage.setItem(CHAVE_DA_LEGENDA, '1');
+    } catch {
+      // sem localStorage a legenda abre de novo; não é motivo para quebrar a tela
+    }
+  }, [aba.key]);
+
+  const contagem = contarPorTipo(itens.map((item) => item.marcador).filter(Boolean));
+  const tipoAtivo = filtroTipo === 'todas' || contagem[filtroTipo] > 0 ? filtroTipo : 'todas';
 
   const disciplinasDaAba = [...new Set(itens.map((item) => disciplinaDaQuestao(item.questao)))];
   // Aba trocada pode não ter a disciplina que estava filtrada; nesse caso o
@@ -80,6 +109,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
   const termo = normalizar(busca.trim());
   const filtrados = itens.filter((item) => {
     if (filtroAtivo !== 'todas' && disciplinaDaQuestao(item.questao) !== filtroAtivo) return false;
+    if (aba.key === 'marcadores' && tipoAtivo !== 'todas' && item.marcador?.tipo !== tipoAtivo) return false;
     if (!termo) return true;
     return normalizar(item.questao.enunciado).includes(termo)
       || normalizar(temaDaQuestao(item.questao)).includes(termo);
@@ -134,7 +164,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
 
   const vazioDaAba = {
     errei: 'Nenhuma questão errada na última tentativa. Quando você errar alguma, ela aparece aqui.',
-    favoritas: 'Você ainda não marcou nenhuma questão com a estrela.',
+    marcadores: 'Você ainda não marcou nenhuma questão. Use a bandeira ao lado de uma questão para dizer por que ela deve voltar.',
     menor: 'Ainda não há histórico para ordenar por desempenho.',
   };
 
@@ -182,6 +212,77 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
               </button>
             )}
           </div>
+
+          {aba.key === 'marcadores' && (
+            <div data-testid="filtros-marcador" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                data-testid="filtro-marcador-todas"
+                aria-pressed={tipoAtivo === 'todas'}
+                onClick={() => setFiltroTipo('todas')}
+                style={{
+                  background: tipoAtivo === 'todas' ? theme.primarySoft : '#fff',
+                  color: tipoAtivo === 'todas' ? theme.primaryDark : '#4f4b45',
+                  border: tipoAtivo === 'todas' ? 'none' : '1px solid #e6e2da',
+                  borderRadius: 8, padding: '7px 11px', fontSize: 12, fontWeight: 600,
+                }}
+              >
+                Todas <span style={{ opacity: 0.65, fontVariantNumeric: 'tabular-nums' }}>{contagem.todas}</span>
+              </button>
+
+              {TIPOS_DE_MARCADOR.map((tipo) => {
+                const ativo = tipoAtivo === tipo.tipo;
+                return (
+                  <button
+                    key={tipo.tipo}
+                    type="button"
+                    data-testid={`filtro-marcador-${tipo.tipo}`}
+                    aria-pressed={ativo}
+                    onClick={() => setFiltroTipo(tipo.tipo)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: ativo ? `${tipo.cor}14` : '#fff',
+                      color: tipo.cor,
+                      border: ativo ? `1px solid ${tipo.cor}55` : '1px solid #e6e2da',
+                      borderRadius: 8, padding: '7px 11px', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <Icon name={tipo.icone} color={tipo.cor} size={12} />
+                    {tipo.rotulo}
+                    <span style={{ opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}>{contagem[tipo.tipo]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {aba.key === 'marcadores' && (
+            <details
+              data-testid="como-funcionam-marcadores"
+              open={legendaAberta}
+              onToggle={(evento) => setLegendaAberta(evento.currentTarget.open)}
+              style={{ ...s.card, padding: '13px 16px' }}
+            >
+              <summary style={{ cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: '#1c1b19' }}>
+                Como funcionam os marcadores
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                {TIPOS_DE_MARCADOR.map((tipo) => (
+                  <div key={tipo.tipo} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ ...dot(tipo.cor), marginTop: 5 }} aria-hidden="true" />
+                    <Icon name={tipo.icone} color={tipo.cor} size={14} style={{ marginTop: 1 }} />
+                    <div style={{ fontSize: 12.5, color: '#4f4b45', lineHeight: 1.45 }}>
+                      <b style={{ color: '#1c1b19' }}>{tipo.rotulo}</b> — {tipo.descricao}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid #eeebe5', paddingTop: 10, marginTop: 2, fontSize: 12, color: '#5f5b55', lineHeight: 1.55 }}>
+                  Um marcador por questão: escolher outro motivo substitui o anterior.
+                  Dúvida aceita uma nota curta. Os marcadores ficam salvos na sua conta.
+                </div>
+              </div>
+            </details>
+          )}
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <input
@@ -237,7 +338,7 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
 
                   {grupo.itens.map((item) => {
                     const q = item.questao;
-                    const favorita = marcados.has(String(q.id));
+                    const dados = item.marcador ? dadosDoMarcador(item.marcador.tipo) : null;
                     // O motivo é da tentativa errada; sem id (resposta ainda não
                     // confirmada pelo servidor) não há onde gravá-lo.
                     const podeAnotar = item.situacao === 'errou' && item.ultima?.id != null && anotarMotivo;
@@ -259,14 +360,15 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
                             </div>
                           </div>
                           <div className="revisao-acoes" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
-                            <button
-                              data-testid={`fav-toggle-${q.id}`}
-                              title={favorita ? 'Desmarcar' : 'Marcar como favorita'}
-                              style={{ background: 'none', border: 'none', flex: 'none', cursor: 'pointer' }}
-                              onClick={() => toggleFavorito(q.id)}
-                            >
-                              <Icon name="star" color={favorita ? '#B07A1F' : '#cfcac2'} size={19} />
-                            </button>
+                            {definirMarcador && (
+                              <BotaoMarcador
+                                s={s}
+                                questaoId={q.id}
+                                marcador={item.marcador}
+                                onSalvar={definirMarcador}
+                                onApagar={removerMarcador}
+                              />
+                            )}
                             <button
                               data-testid={`revisar-${q.id}`}
                               style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}
@@ -276,6 +378,24 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
                             </button>
                           </div>
                         </div>
+                        {item.marcador && dados && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            <span
+                              data-testid={`marcador-chip-${q.id}`}
+                              style={{
+                                ...s.pill(`${dados.cor}14`, dados.cor),
+                                display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+                              }}
+                            >
+                              <Icon name={dados.icone} color={dados.cor} size={11} /> {dados.rotulo}
+                            </span>
+                            {item.marcador.tipo === 'duvida' && item.marcador.nota && (
+                              <div data-testid={`marcador-nota-texto-${q.id}`} style={{ fontSize: 12, color: '#4f4b45', lineHeight: 1.5 }}>
+                                Sua dúvida: {item.marcador.nota}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {podeAnotar && (
                           // `key` pela tentativa: errar de novo traz outra tentativa, e
                           // o formulário recomeça vazio em vez de herdar o estado da
@@ -348,11 +468,10 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
 
           <div style={{ ...s.card, borderLeft: `3px solid ${theme.accent}`, borderRadius: 8, padding: '16px 18px', color: '#1c1b19' }}>
             <div style={{ fontSize: 14.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="lightbulb" color={theme.accent} size={18} />Sobre as favoritas
+              <Icon name="lightbulb" color={theme.accent} size={18} />Sobre os marcadores
             </div>
             <div style={{ fontSize: 12.5, marginTop: 8, color: '#5f5b55', lineHeight: 1.5 }}>
-              A estrela fica guardada neste navegador — ainda não existe rota de
-              favorito na API, então ela não segue você para outro aparelho.
+              Os marcadores ficam salvos na sua conta e aparecem em qualquer aparelho.
             </div>
           </div>
         </div>
@@ -368,6 +487,9 @@ export default function Revisoes({ theme, s, rev, setRev, favoritos, toggleFavor
           onFechar={() => setModal(null)}
           registrar={registrar}
           anotarMotivo={anotarMotivo}
+          marcadores={marcadores}
+          definirMarcador={definirMarcador}
+          removerMarcador={removerMarcador}
         />
       )}
     </>

@@ -5,7 +5,9 @@ import { SOMBRA_ALTA } from '../../lib/theme';
 import { alternarRisco } from '../../lib/cardDeQuestao';
 import { ORIGEM_DO_REFAZER, resultadoDoRefazer, resumoDoRefazer } from '../../lib/refazer';
 import MotivoDoErro from './MotivoDoErro';
+import BotaoMarcador, { type MarcadorDaQuestao } from './BotaoMarcador';
 import { BotaoRiscar, GabaritoComentado } from './CardDeQuestao';
+import { dadosDoMarcador } from '../../lib/marcadores';
 import { SITUACAO } from './situacao';
 
 // Leitura da questão e do gabarito — e, desde a fase 2, o "Refazer" dentro do
@@ -57,6 +59,7 @@ export type ItemDaRevisao = {
   acertos?: number;
   tentativas?: number;
   ultima?: TentativaDaRevisao | null;
+  marcador?: MarcadorDaQuestao | null;
 };
 
 // O que o modal manda para `registrar` (App.jsx) ao confirmar uma resposta:
@@ -82,6 +85,12 @@ type Props = {
     tentativaId: unknown,
     dados: { motivo: string | null; nota: string }
   ) => Promise<string | null>;
+  marcadores?: Record<string, MarcadorDaQuestao>;
+  definirMarcador?: (
+    questaoId: number | string,
+    dados: { tipo: string; nota?: string | null }
+  ) => Promise<unknown>;
+  removerMarcador?: (questaoId: number | string) => Promise<unknown>;
 };
 
 const LETRA = (i: number) => String.fromCharCode(65 + i);
@@ -100,6 +109,7 @@ const rotuloDaUltima = (situacao: ItemDaRevisao['situacao']) => {
 
 export default function VerQuestao({
   s, theme, itens, indiceInicial, onFechar, modoInicial = 'ler', registrar, anotarMotivo,
+  marcadores, definirMarcador, removerMarcador,
 }: Props) {
   const idTitulo = useId();
   const fecharRef = useRef<HTMLButtonElement>(null);
@@ -122,6 +132,10 @@ export default function VerQuestao({
   const [marcada, setMarcada] = useState<number | null>(null);
   const [riscadas, setRiscadas] = useState<number[]>([]);
   const [resultado, setResultado] = useState<{ acertou: boolean; alternativa: number } | null>(null);
+  // A pergunta "tirar o marcador?" guarda o marcador do momento da confirmação:
+  // o popover da bandeira pode mudar depois, mas a pergunta é sobre o que
+  // existia quando a questão foi respondida.
+  const [marcadorAoResponder, setMarcadorAoResponder] = useState<MarcadorDaQuestao | null>(null);
   // Resumo por questão, não por tentativa: voltar com "Anterior" e confirmar a
   // mesma de novo atualiza o veredito dela, sem contá-la duas vezes.
   const [resumo, setResumo] = useState<Record<string, boolean>>({});
@@ -139,6 +153,7 @@ export default function VerQuestao({
 
   useEffect(() => {
     const aoTeclar = (evento: KeyboardEvent) => {
+      if (evento.defaultPrevented) return;
       if (evento.key === 'Escape') {
         evento.preventDefault();
         onFechar();
@@ -154,6 +169,7 @@ export default function VerQuestao({
     setMarcada(null);
     setRiscadas([]);
     setResultado(null);
+    setMarcadorAoResponder(null);
     inicioDoRefazer.current = Date.now();
   }, [atualId]);
 
@@ -189,6 +205,12 @@ export default function VerQuestao({
   const respostaAgora = resultado ? resultado.alternativa : null;
 
   const refazendo = modo === 'refazer';
+  // A lista congelada guarda o marcador da abertura; o índice do App é a
+  // verdade mais nova. Quando ele é passado, a ausência de chave significa
+  // "sem marcador", e não "use o antigo".
+  const marcadorAtual = marcadores
+    ? (marcadores[String(questao.id)] || null)
+    : (atual.marcador || null);
   const chavesDoResumo = Object.keys(resumo);
   const resumoFinal = resumoDoRefazer(
     chavesDoResumo.length,
@@ -208,6 +230,7 @@ export default function VerQuestao({
     setMarcada(null);
     setRiscadas([]);
     setResultado(null);
+    setMarcadorAoResponder(null);
     inicioDoRefazer.current = Date.now();
     setModo('refazer');
   };
@@ -228,6 +251,7 @@ export default function VerQuestao({
     const tempoSeg = Math.max(0, Math.round((Date.now() - inicioDoRefazer.current) / 1000));
 
     setResultado({ acertou, alternativa: marcada });
+    setMarcadorAoResponder(marcadorAtual);
     setResumo((atualResumo) => ({ ...atualResumo, [String(questao.id)]: acertou }));
     setModo('resultado');
 
@@ -241,6 +265,15 @@ export default function VerQuestao({
       tempoSeg,
       origem: ORIGEM_DO_REFAZER,
     });
+  };
+
+  const tirarMarcadorDaQuestao = async () => {
+    if (!removerMarcador || !marcadorAoResponder) return;
+    const anterior = marcadorAoResponder;
+    setMarcadorAoResponder(null);
+    const resposta = await removerMarcador(questao.id);
+    // A remoção otimista falhou: a pergunta volta para a pessoa poder insistir.
+    if (resposta === false) setMarcadorAoResponder(anterior);
   };
 
   const concluir = () => {
@@ -287,17 +320,29 @@ export default function VerQuestao({
               <span style={{ fontSize: 12, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>{posicao} de {total}</span>
             </div>
           </div>
-          <button
-            ref={fecharRef}
-            type="button"
-            data-testid="fechar-ver-questao"
-            aria-label="Fechar"
-            title="Fechar"
-            onClick={onFechar}
-            style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, padding: 0, flex: 'none' }}
-          >
-            <Icon name="x" color="#4f4b45" size={16} style={undefined} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+            {definirMarcador && (
+              <BotaoMarcador
+                s={s}
+                questaoId={questao.id}
+                marcador={marcadorAtual}
+                onSalvar={definirMarcador}
+                onApagar={removerMarcador}
+                tamanho={20}
+              />
+            )}
+            <button
+              ref={fecharRef}
+              type="button"
+              data-testid="fechar-ver-questao"
+              aria-label="Fechar"
+              title="Fechar"
+              onClick={onFechar}
+              style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, padding: 0, flex: 'none' }}
+            >
+              <Icon name="x" color="#4f4b45" size={16} style={undefined} />
+            </button>
+          </div>
         </div>
 
         {mostrandoResumo ? (
@@ -453,6 +498,43 @@ export default function VerQuestao({
                 >
                   <Icon name={resultado.acertou ? 'circle-check' : 'circle-x'} color={resultado.acertou ? '#4A7A4A' : '#B4413A'} size={15} style={undefined} />
                   {resultadoDoRefazer(resultado.acertou)}
+                </div>
+              )}
+
+              {modo === 'resultado' && resultado && marcadorAoResponder && removerMarcador && (
+                <div
+                  data-testid="pergunta-tirar-marcador"
+                  style={{
+                    marginTop: 10, padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid #eeebe5', background: '#faf9f6',
+                    display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  }}
+                >
+                  <Icon
+                    name="flag"
+                    color={dadosDoMarcador(marcadorAoResponder.tipo).cor}
+                    size={15}
+                    style={undefined}
+                  />
+                  <div style={{ flex: 1, minWidth: 190, fontSize: 12.5, color: '#4f4b45', lineHeight: 1.45 }}>
+                    Ela está marcada como {dadosDoMarcador(marcadorAoResponder.tipo).rotulo}. Tirar o marcador?
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="refazer-tirar-marcador"
+                    onClick={() => { void tirarMarcadorDaQuestao(); }}
+                    style={{ ...s.btnOutline, color: '#8F2F29', borderColor: '#B4413A55' }}
+                  >
+                    Tirar
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="refazer-manter-marcador"
+                    onClick={() => setMarcadorAoResponder(null)}
+                    style={s.btnOutline}
+                  >
+                    Manter
+                  </button>
                 </div>
               )}
 

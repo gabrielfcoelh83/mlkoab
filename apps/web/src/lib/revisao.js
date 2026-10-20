@@ -10,6 +10,8 @@
 // entra em "Errei" é a ÚLTIMA tentativa dela, não a primeira nem a média —
 // quem errou e depois acertou já corrigiu o problema.
 
+import { indexarMarcadores } from './marcadores.js';
+
 // Por que a pessoa errou — a anotação do Caderno de Erros. É o que separa
 // lacuna de conteúdo ("não conhecia") de erro de atenção ("li errado"), e só
 // quem errou sabe. Opcional: obrigar faria a pessoa marcar qualquer coisa.
@@ -68,14 +70,18 @@ export function situacaoDaQuestao(tentativas, id) {
 /**
  * Separa o acervo nas listas que a tela oferece.
  *
- * `favoritos` é uma lista de ids marcados à mão; ela vive só neste navegador
- * porque não existe rota de favorito na API — a tela diz isso em vez de fingir
- * que sincroniza.
+ * `marcadores` é a lista (ou o índice) vinda da API: um por questão, com o
+ * motivo escolhido à mão. Ela é do servidor — o localStorage só guarda as
+ * estrelas antigas, que o App converte em `refazer` na primeira carga.
  */
-export function classificarRevisao(questoes = [], tentativas = {}, favoritos = []) {
-  const marcados = new Set((favoritos || []).map(String));
+export function classificarRevisao(questoes = [], tentativas = {}, marcadores = {}) {
+  const porQuestao = Array.isArray(marcadores) ? indexarMarcadores(marcadores) : (marcadores || {});
 
-  const comSituacao = questoes.map((q) => ({ questao: q, ...situacaoDaQuestao(tentativas, q.id) }));
+  const comSituacao = questoes.map((q) => ({
+    questao: q,
+    ...situacaoDaQuestao(tentativas, q.id),
+    marcador: porQuestao[String(q.id)] || null,
+  }));
 
   const errei = comSituacao
     .filter((x) => x.situacao === 'errou')
@@ -83,7 +89,7 @@ export function classificarRevisao(questoes = [], tentativas = {}, favoritos = [
     // esquecida: ela vem primeiro.
     .sort((a, b) => String(a.ultima?.data || '').localeCompare(String(b.ultima?.data || '')));
 
-  const favoritas = comSituacao.filter((x) => marcados.has(String(x.questao.id)));
+  const marcadas = comSituacao.filter((x) => x.marcador);
 
   const emAberto = comSituacao.filter((x) => x.situacao === 'em-aberto');
 
@@ -98,11 +104,11 @@ export function classificarRevisao(questoes = [], tentativas = {}, favoritos = [
 
   return {
     errei,
-    favoritas,
+    marcadas,
     emAberto,
     menorDesempenho,
     // "Todas para revisar" = o que se errou mais o que se marcou, sem repetir.
-    todas: [...errei, ...favoritas.filter((f) => f.situacao !== 'errou')],
+    todas: [...errei, ...marcadas.filter((f) => f.situacao !== 'errou')],
     resumo: {
       acervo: questoes.length,
       respondidas: respondidas.length,
@@ -112,7 +118,7 @@ export function classificarRevisao(questoes = [], tentativas = {}, favoritos = [
       // errar de novo é um erro novo, e o motivo do anterior pode não valer.
       errosSemMotivo: errei.filter((x) => !x.ultima?.motivo).length,
       emAberto: emAberto.length,
-      favoritas: favoritas.length,
+      marcadores: marcadas.length,
       pct: respondidas.length > 0 ? Math.round((acertos / respondidas.length) * 100) : null,
     },
   };

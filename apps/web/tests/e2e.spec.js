@@ -1036,7 +1036,7 @@ test.describe('Revisões', () => {
 
     // As abas que restaram.
     await expect(page.locator('[data-testid="aba-errei"]')).toBeVisible();
-    await expect(page.locator('[data-testid="aba-favoritas"]')).toBeVisible();
+    await expect(page.locator('[data-testid="aba-marcadores"]')).toBeVisible();
     await expect(page.locator('[data-testid="aba-menor"]')).toBeVisible();
     await expect(page.locator('[data-testid="aba-todas"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="aba-aberto"]')).toHaveCount(0);
@@ -1075,6 +1075,67 @@ test.describe('Revisões', () => {
     await page.keyboard.press('Escape');
     await expect(modal).toHaveCount(0);
     await expect(page.locator('[data-testid="ver-questao-9501"]')).toBeFocused();
+  });
+
+  // A estrela virou bandeira com motivo. O teste percorre o ciclo inteiro no
+  // backend real: marcar no quiz, ver na aba Marcadores com o subfiltro,
+  // trocar o motivo (inclusive com nota) e tirar — sem deixar marcador para
+  // trás, para os outros testes não herdarem o estado.
+  test('marca no quiz, vê em Marcadores, troca por Dúvida com nota e tira o marcador', async ({ page }) => {
+    await page.click('[data-testid="nav-questoes"]');
+    await page.click('[data-testid="gerar-quiz"]');
+    await expect(page.locator('[data-testid="alt-0"]')).toBeVisible();
+
+    // A bandeira é o único controle com este atributo na tela do quiz, e ele
+    // carrega o id real da questão — daí para baixo, os testids são por id.
+    const bandeira = page.locator('[data-marcador-botao]').first();
+    await expect(bandeira).toBeVisible();
+    const id = await bandeira.getAttribute('data-marcador-botao');
+    expect(id).toBeTruthy();
+
+    await page.click(`[data-testid="marcador-${id}"]`);
+    const menu = page.locator(`[data-testid="menu-marcador-${id}"]`);
+    await expect(menu).toBeVisible();
+    await page.click(`[data-testid="marcador-opcao-chute-${id}"]`);
+
+    // A bandeira passa a carregar o tipo e a cor do motivo escolhido.
+    await expect(page.locator(`[data-testid="marcador-${id}"]`)).toHaveAttribute('data-tipo', 'chute');
+    await expect(page.locator(`[data-testid="marcador-${id}"]`)).toHaveAttribute('data-cor', '#962D86');
+
+    await page.click('[data-testid="nav-revisoes"]');
+    await page.click('[data-testid="aba-marcadores"]');
+    await expect(page.locator(`[data-testid="revisao-item-${id}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="marcador-chip-${id}"]`)).toContainText('Chutei');
+
+    // O subfiltro mantém a questão na lista e se anuncia como ativo.
+    await page.click('[data-testid="filtro-marcador-chute"]');
+    await expect(page.locator('[data-testid="filtro-marcador-chute"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator(`[data-testid="revisao-item-${id}"]`)).toBeVisible();
+    await page.click('[data-testid="filtro-marcador-todas"]');
+
+    // Trocar o motivo: escolher outro tipo substitui o anterior, nunca soma.
+    await page.click('[data-testid="nav-questoes"]');
+    await page.click(`[data-testid="marcador-${id}"]`);
+    await page.click(`[data-testid="marcador-opcao-duvida-${id}"]`);
+    const nota = `Dúvida criada pelo e2e ${Date.now()}`;
+    await page.fill(`[data-testid="marcador-nota-${id}"]`, nota);
+    await page.click(`[data-testid="marcador-nota-salvar-${id}"]`);
+    await expect(page.locator(`[data-testid="marcador-${id}"]`)).toHaveAttribute('data-tipo', 'duvida');
+
+    await page.click('[data-testid="nav-revisoes"]');
+    await page.click('[data-testid="aba-marcadores"]');
+    await expect(page.locator(`[data-testid="marcador-chip-${id}"]`)).toContainText('Dúvida');
+    await expect(page.locator(`[data-testid="marcador-nota-texto-${id}"]`)).toContainText(nota);
+
+    // "Tirar o marcador" some da tela na hora e some da aba Marcadores.
+    await page.click('[data-testid="nav-questoes"]');
+    await page.click(`[data-testid="marcador-${id}"]`);
+    await page.click(`[data-testid="marcador-remover-${id}"]`);
+    await expect(page.locator(`[data-testid="marcador-${id}"]`)).toHaveAttribute('data-tipo', 'nenhum');
+
+    await page.click('[data-testid="nav-revisoes"]');
+    await page.click('[data-testid="aba-marcadores"]');
+    await expect(page.locator(`[data-testid="revisao-item-${id}"]`)).toHaveCount(0);
   });
 });
 
@@ -1512,7 +1573,7 @@ test.describe('Todas as telas', () => {
     ['revisoes', 'O que você errou'],
     ['desempenho', 'Acompanhe sua evolução'],
     ['estatisticas', 'Números detalhados'],
-    ['favoritos', 'marcou como favoritas'],
+    ['favoritos', 'Questões com marcador'],
     ['disciplinas', 'aproveitamento em cada matéria'],
     ['anotacoes', 'guardados neste navegador'],
     ['configuracoes', 'Preferências da sua conta'],
