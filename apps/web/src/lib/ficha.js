@@ -8,7 +8,8 @@
 //
 // Tudo aqui é puro: a tela (`FichaDeBoasVindas.jsx`) só desenha e chama.
 
-import { FASES, FASE_PADRAO, ICONE_POR_DISCIPLINA } from './navegacao.js';
+import { FASES, FASE_PADRAO } from './navegacao.js';
+import { MATERIAS } from './areas.js';
 
 export const FICHA_VERSAO = 1;
 
@@ -63,11 +64,11 @@ export function metaValida(valor) {
   return Math.min(META_MAXIMA, n);
 }
 
-// As 18 disciplinas da 1ª fase que o app já conhece (os ícones de
-// `navegacao.js`). Servem de lista quando o acervo ainda não carregou ou
+// As 20 disciplinas da 1ª fase que o app já conhece (as matérias de
+// `areas.js`). Servem de lista quando o acervo ainda não carregou ou
 // falhou: sem ela, o passo "pontos fracos" ficaria vazio e a pessoa não teria
 // o que marcar.
-export const DISCIPLINAS_OAB = Object.keys(ICONE_POR_DISCIPLINA);
+export const DISCIPLINAS_OAB = [...MATERIAS];
 
 /**
  * As matérias que dá para marcar como difíceis: as do acervo carregado, em

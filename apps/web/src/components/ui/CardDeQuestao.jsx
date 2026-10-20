@@ -58,7 +58,7 @@ export function BotaoRiscar({ theme, indice, riscada, onAlternar }) {
         opacity: riscada ? 1 : 0.55,
       }}
     >
-      <Icon name="scissors" color={riscada ? theme.primaryDark : '#7a766f'} size={15} />
+      <Icon name="scissors" color={riscada ? theme.primaryDark : '#6a665f'} size={15} />
     </button>
   );
 }
@@ -101,7 +101,7 @@ export function GabaritoComentado({ s, questao, compacto = false, className, sty
         >
           <Icon name="lightbulb" color="#B07A1F" size={compacto ? 15 : 16} />
           Gabarito comentado
-          <Icon name="chevron-down" color="#7a766f" size={15} style={{ transform: aberto ? 'rotate(180deg)' : 'none', transition: 'transform 160ms var(--ease-out)' }} />
+          <Icon name="chevron-down" color="#6a665f" size={15} style={{ transform: aberto ? 'rotate(180deg)' : 'none', transition: 'transform 160ms var(--ease-out)' }} />
         </button>
         <SeloDoAssistente s={s} questao={questao} />
       </div>

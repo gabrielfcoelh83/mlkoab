@@ -35,7 +35,7 @@ Sete paletas em `THEMES` ([src/lib/theme.js](src/lib/theme.js)): `bordo` (padrã
 | Fundo da página | `theme.bg` |
 | Superfícies | `#fff` + `SOMBRA` (via `s.card`) |
 | Texto principal | `#1c1b19` (`TINTA`) |
-| Texto secundário | `#7a766f` (`MUDO`) |
+| Texto secundário | `#6a665f` (`MUDO`) |
 | Texto de corpo em cards | `#4f4b45` |
 | Ação principal | `theme.primary` (hover/borda: `theme.primaryDark`) |
 | Seleção / item ativo do menu | `theme.primarySoft` |
@@ -95,12 +95,17 @@ Barra lateral fixa de 232px (`s.sidebar`) + área principal com cabeçalho (`s.t
 
 ## 5. Componentes e motivos
 
-- **Botões:** `s.btnPrimary`, cheio, **um por tela**, para a ação principal. `s.btnOutline` para ações repetidas em cards e linhas ("Adiantar", "Revisar", "Iniciar simulado" por matéria).
+- **Botões:** `s.btnPrimary`, cheio, **um por tela**, para a ação principal (um diálogo aberto conta como tela). `s.btnOutline` para ações repetidas em cards e linhas ("Adiantar", "Refazer", "Praticar").
 - **Selos (badges):** `HaloBadge` de [halo-badge.jsx](src/components/ui/halo-badge.jsx) (cult-ui), em tamanho único `h-5` com texto de 10px. Contagens usam `tabularNums` (sino); estado ao vivo usa `live` ("Hoje" no Cronograma); rótulos neutros usam `variant="secondary"` (fase na barra lateral). Fora de botões e links, passe `interactive={false}`. O aro animado lê `--primary`, `--tema-acento` e `--primary-soft`, que `aplicarTemaNoDocumento` ([src/lib/theme.js](src/lib/theme.js)) atualiza a cada troca de paleta. Nunca volte às cores neon originais do componente. Para rótulos maiores que 10px, use `s.pill`.
 - **Links de texto:** `Link002` de [skiper40.jsx](src/components/ui/skiper-ui/skiper40.jsx) (sublinhado que corre + seta no hover), com `style={s.link}`.
 - **Ícones:** traços do Lucide em [src/lib/icons.jsx](src/lib/icons.jsx), 18–20px no menu e nos títulos, 12–13px dentro de botões.
 - **Listas selecionáveis:** sem fundo em repouso, o estado fica no checkbox, e um véu neutro aparece no hover (`.linha-fonte` em [src/index.css](src/index.css)).
-- **Indicadores de disciplina:** quadradinho 8×8 (raio 2) ou bolinha na `corDaDisciplina`, ao lado do nome. Nunca um ícone grande colorido.
+- **Matéria:** cinco áreas, cada uma com uma cor, e um ícone próprio por matéria ([src/lib/areas.js](src/lib/areas.js)). A matéria aparece como `TileDaMateria` ([Materia.tsx](src/components/ui/Materia.tsx)): ladrilho com véu `${cor}14`, ícone na cor da área, 22px em listas, 28–40px em cartões. Em legenda de área, quadradinho 9×9 (raio 2) na cor da área.
+- **Nível:** `LadoNivel`, quatro degraus crescentes (Iniciando < 10 respostas, Base < 50%, Avançando < 80%, Domínio), na cor da área, com o rótulo ao lado e o "próximo passo" no `title`. Substitui os selos "Domina / Precisa reforço".
+- **Diálogo:** `Dialogo` ([Dialogo.tsx](src/components/ui/Dialogo.tsx)), centrado sobre véu `rgba(28,27,25,.42)`, `SOMBRA_ALTA`, raio 12, corpo em `#faf9f6` com os cartões dentro; tela cheia em ≤ 560px. Esc e o fundo fecham; o foco volta para quem abriu. Usado no pop-up da matéria (Revisões) e na apostila (Simulados).
+- **Cartão de métrica:** `KpiCard` ([Metricas.tsx](src/components/ui/Metricas.tsx)): rótulo, valor grande, variação em chip (verde quando melhora, vermelho quando piora; `menorEMelhor` inverte para tempo), contexto em uma linha e a mini-curva ou os 14 quadradinhos dos dias. Faixa de quatro no topo das telas de dados.
+- **Gráficos:** `GraficoArea` (curva suave, preenchimento a 7%, linha de referência tracejada), `GraficoBarras` (barras agrupadas de 12px) e `Rosca` (anel de 22px com tabela ao lado). SVG à mão, com `aria-label` descrevendo o dado e `<title>` em cada ponto. Sem modo escuro.
+- **Mapa da prova:** `ColunasDaProva`, uma coluna por matéria agrupada por área: altura = o que vale nas 80, parte cheia = o que se leva hoje, tracejado sem dados.
 - **Escolha de paleta:** miniatura do app em cada opção ([Configuracoes.jsx](src/screens/Configuracoes.jsx)), `role="radiogroup"`.
 
 ---
@@ -126,6 +131,8 @@ Curvas `--ease-out` e `--ease-in-out` em [src/index.css](src/index.css); `ease-i
 - [ ] Cores da marca vêm de `theme.*`; nenhum hex de paleta escrito na tela
 - [ ] Verde/vermelho/âmbar só nos valores semânticos da tabela de cor
 - [ ] Ladrilhos de ícone com véu `${cor}14` e ícone colorido, nunca ícone branco sobre cor cheia
+- [ ] Matéria sempre com `TileDaMateria` e nível com `LadoNivel`; nada de borda esquerda colorida em cartão
+- [ ] Sem exclamação de comemoração no texto ("Acertou.", não "Acertou!")
 - [ ] Números que mudam com `tabular-nums` (`s.statNum` já tem)
 - [ ] Raios da tabela da seção 2; bloco aninhado com raio menor que o pai
 - [ ] Nada de `transition: all`; animação nova tem regra em `prefers-reduced-motion`
@@ -134,7 +141,7 @@ Curvas `--ease-out` e `--ease-in-out` em [src/index.css](src/index.css); `ease-i
 
 ## Open questions
 
-- Os neutros (`#1c1b19`, `#7a766f`, `#4f4b45`, `#eeebe5`) estão escritos à mão em quase todas as telas; o ideal seria exportá-los de [src/lib/theme.js](src/lib/theme.js) como tokens.
+- Os neutros já saem de [src/lib/theme.js](src/lib/theme.js) (`TINTA`, `MUDO`, `LINHA`, `TRILHO`, `VERDE`, `VERMELHO`) e os componentes `.tsx` novos os usam; as telas `.jsx` antigas ainda os escrevem à mão.
 - `iw()` está duplicado em [Dashboard.jsx](src/screens/Dashboard.jsx) e [Revisoes.jsx](src/screens/Revisoes.jsx), e o `iconWrap` dos cards de número ficou sem uso visual.
 - A primeira cor de `corDaDisciplina` coincide com a paleta Bordô; numa matéria com essa cor, ela pode ser confundida com a marca.
 - Não há modo escuro, e a 1ª fase não tem layout de celular.

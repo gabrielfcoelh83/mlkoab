@@ -109,6 +109,24 @@ function lerProfileData(page) {
   });
 }
 
+// Revisões agrupa as questões em cartões por matéria, e as questões de cada
+// matéria abrem num pop-up. Abre a matéria que contém `alvo` (seletor ou
+// texto dentro do pop-up) e devolve true; sem nenhuma, devolve false com o
+// pop-up fechado.
+async function abrirMateriaCom(page, alvo) {
+  const n = await page.locator('[data-testid="grupo-revisao"]').count();
+  for (let i = 0; i < n; i++) {
+    await page.click(`[data-testid="abrir-grupo-${i}"]`);
+    const popup = page.locator('[data-testid="popup-materia"]');
+    await expect(popup).toBeVisible();
+    const achou = alvo.startsWith('[') ? popup.locator(alvo) : popup.getByText(alvo);
+    if (await achou.count() > 0) return true;
+    await page.click('[data-testid="fechar-dialogo"]');
+    await expect(popup).toHaveCount(0);
+  }
+  return false;
+}
+
 async function entrar(page) {
   await page.goto('/');
   // Limpar antes de logar: a sessão não pode vazar de um teste para o outro.
@@ -235,7 +253,7 @@ test.describe('MA Questões E2E', () => {
     await page.click('[data-testid="novo-simulado"]');
     await page.waitForTimeout(300);
 
-    // 3. Configurar: quantidade (dropdown "Vamos começar!")
+    // 3. Configurar: quantidade
     await page.selectOption('[data-testid="qtd-questoes"]', '10');
 
     // 4. Iniciar (botão de confirmação do config)
@@ -269,9 +287,11 @@ test.describe('MA Questões E2E', () => {
     await expect(page.locator('[data-testid^="revisao-q-"]')).toHaveCount(questoes);
     await expect(page.locator('[data-testid="revisao-q-0"]')).toContainText('Gabarito');
 
-    // 9. Histórico persistido no localStorage
-    const storage = await page.evaluate(() => JSON.parse(localStorage.getItem('ma-questoes-state-v1') || '{}'));
-    expect((storage.resultados_historico || []).length).toBeGreaterThan(0);
+    // 9. O simulado foi registrado no servidor: depois da fila de respostas,
+    // ele aparece em "Meus simulados", com apostila.
+    await page.click('[data-testid="voltar-simulados"]');
+    await page.click('[data-testid="lista-meus"]');
+    await expect(page.locator('[data-testid="meus-simulados"]')).toContainText('Simulado Geral', { timeout: 15000 });
   });
 
   test('localStorage persiste após refresh', async ({ page }) => {
@@ -498,7 +518,7 @@ test.describe('Acervo vindo do servidor', () => {
     await alternativas.nth(casada.gabarito).click();
     await finalizarQuiz(page);
     await verCorrecao(page, 0);
-    await expect(page.locator('[data-testid="veredito"]')).toHaveText(/Acertou!/);
+    await expect(page.locator('[data-testid="veredito"]')).toHaveText(/Acertou./);
   });
 
   test('explicação da IA aparece assinada pelo assistente', async ({ page }) => {
@@ -629,7 +649,7 @@ test.describe('Perfil e preferências', () => {
     await expect(page.locator('[data-testid="nav-questoes"]')).toBeVisible();
 
     // A meta voltou: o dashboard mostra 0/7, e não o padrão 0/20.
-    await expect(page.locator('text=0/7 questões')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="meta-de-hoje"]', { hasText: '0 de 7 hoje' })).toBeVisible({ timeout: 10000 });
 
     // E a data também: o topo conta os dias em vez de pedir a data.
     await expect(page.locator('text=para a prova da OAB')).toBeVisible();
@@ -738,7 +758,7 @@ test.describe('Ficha de boas-vindas', () => {
     await page.click('[data-testid="ficha-entrar"]');
 
     await expect(page.locator('[data-testid="nav-questoes"]')).toBeVisible();
-    await expect(page.locator('text=0/35 questões')).toBeVisible();
+    await expect(page.locator('[data-testid="meta-de-hoje"]', { hasText: '0 de 35 hoje' })).toBeVisible();
 
     const salvo = await lerProfileData(page);
     expect(salvo.meta).toBe(35);
@@ -943,12 +963,8 @@ test.describe('Revisões', () => {
     // A aba padrão é a lista de erradas; "Para revisar" e "Nunca respondi"
     // saíram da tela.
     await expect(page.locator('[data-testid="aba-errei"]')).toBeVisible();
-    if (acertou) {
-      // O bug antigo aparecia exatamente aqui: acertada listada em "Errei".
-      await expect(page.locator('body')).not.toContainText(enunciado);
-    } else {
-      await expect(page.locator('body')).toContainText(enunciado);
-    }
+    // O bug antigo aparecia exatamente aqui: acertada listada em "Errei".
+    expect(await abrirMateriaCom(page, enunciado)).toBe(!acertou);
   });
 
   test('"Refazer" abre o modal já no modo refazer, na questão escolhida', async ({ page }) => {
@@ -965,6 +981,7 @@ test.describe('Revisões', () => {
 
     await page.click('[data-testid="nav-revisoes"]');
     await page.click('[data-testid="aba-menor"]');
+    await page.click('[data-testid="abrir-grupo-0"]');
 
     const primeiroItem = page.locator('[data-testid^="revisao-item-"]').first();
     await expect(primeiroItem).toBeVisible();
@@ -1050,8 +1067,9 @@ test.describe('Revisões', () => {
 
     // Busca sem acento pelo tema: "execucao" casa com "Execução".
     await page.fill('[data-testid="busca-revisao"]', 'execucao');
-    await expect(page.locator('[data-testid^="revisao-item-"]')).toHaveCount(1);
+    await expect(grupos).toHaveCount(1);
     await expect(page.locator('[data-testid="grupo-disciplina"]')).toHaveText('Direito Civil');
+    await expect(page.locator('[data-testid="grupo-meta"]')).toContainText('1 errada');
 
     await page.fill('[data-testid="busca-revisao"]', 'sem resultado nenhum');
     await expect(page.locator('[data-testid="revisao-sem-filtro"]')).toContainText('Nenhuma questão com esse filtro.');
@@ -1059,12 +1077,15 @@ test.describe('Revisões', () => {
 
     // Filtro por disciplina, e o topo "Refazer as N" acompanha.
     await page.selectOption('[data-testid="filtro-disciplina"]', 'Direito Penal');
-    await expect(page.locator('[data-testid^="revisao-item-"]')).toHaveCount(1);
+    await expect(grupos).toHaveCount(1);
     await expect(page.locator('[data-testid="revisar-tudo"]')).toContainText('Refazer a questão');
     await page.selectOption('[data-testid="filtro-disciplina"]', 'todas');
 
     // Modal: gabarito e a resposta errada da última tentativa, com rótulos
     // distintos. O foco entra no fechar e o Esc devolve ao botão que abriu.
+    // A questão está no pop-up da matéria, aberto pelo cartão.
+    await page.click('[data-testid="abrir-grupo-0"]');
+    await expect(page.locator('[data-testid="popup-materia"]')).toContainText('Direito Penal');
     await page.click('[data-testid="ver-questao-9501"]');
     const modal = page.locator('[data-testid="ver-questao-modal"]');
     await expect(modal).toBeVisible();
@@ -1104,13 +1125,15 @@ test.describe('Revisões', () => {
 
     await page.click('[data-testid="nav-revisoes"]');
     await page.click('[data-testid="aba-marcadores"]');
-    await expect(page.locator(`[data-testid="revisao-item-${id}"]`)).toBeVisible();
+    expect(await abrirMateriaCom(page, `[data-testid="revisao-item-${id}"]`)).toBe(true);
     await expect(page.locator(`[data-testid="marcador-chip-${id}"]`)).toContainText('Chutei');
+    await page.keyboard.press('Escape');
 
     // O subfiltro mantém a questão na lista e se anuncia como ativo.
     await page.click('[data-testid="filtro-marcador-chute"]');
     await expect(page.locator('[data-testid="filtro-marcador-chute"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator(`[data-testid="revisao-item-${id}"]`)).toBeVisible();
+    expect(await abrirMateriaCom(page, `[data-testid="revisao-item-${id}"]`)).toBe(true);
+    await page.keyboard.press('Escape');
     await page.click('[data-testid="filtro-marcador-todas"]');
 
     // Trocar o motivo: escolher outro tipo substitui o anterior, nunca soma.
@@ -1124,8 +1147,10 @@ test.describe('Revisões', () => {
 
     await page.click('[data-testid="nav-revisoes"]');
     await page.click('[data-testid="aba-marcadores"]');
+    expect(await abrirMateriaCom(page, `[data-testid="revisao-item-${id}"]`)).toBe(true);
     await expect(page.locator(`[data-testid="marcador-chip-${id}"]`)).toContainText('Dúvida');
     await expect(page.locator(`[data-testid="marcador-nota-texto-${id}"]`)).toContainText(nota);
+    await page.keyboard.press('Escape');
 
     // "Tirar o marcador" some da tela na hora e some da aba Marcadores.
     await page.click('[data-testid="nav-questoes"]');
@@ -1197,7 +1222,7 @@ test.describe('Revisões — refazer no modal', () => {
     await entrar(page);
     await page.click('[data-testid="nav-revisoes"]');
 
-    await expect(page.locator('[data-testid="revisao-item-9601"]')).toBeVisible();
+    expect(await abrirMateriaCom(page, '[data-testid="revisao-item-9601"]')).toBe(true);
     await page.click('[data-testid="revisar-9601"]');
 
     const modal = page.locator('[data-testid="ver-questao-modal"]');
@@ -1223,7 +1248,7 @@ test.describe('Revisões — refazer no modal', () => {
     expect(posts).toHaveLength(0);
     await modal.locator('[data-testid="confirmar-resposta"]').click();
 
-    await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Errei.');
+    await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Erradas.');
     // Acertou: a marcada é o próprio gabarito, e o rótulo é "Gabarito · sua resposta agora".
     await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).toContainText('Gabarito · sua resposta agora');
 
@@ -1241,7 +1266,7 @@ test.describe('Revisões — refazer no modal', () => {
     const resumo = modal.locator('[data-testid="resumo-refazer"]');
     await expect(resumo).toContainText('Você refez 1');
     await expect(resumo).toContainText('acertou 1');
-    await expect(resumo).toContainText('0 continuam em Errei');
+    await expect(resumo).toContainText('0 continuam em Erradas');
 
     await modal.locator('[data-testid="resumo-voltar"]').click();
     await expect(modal).toHaveCount(0);
@@ -1348,10 +1373,14 @@ test.describe('Foco do dia', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Simulado por matéria (Disciplinas → "Vamos começar!")
+// Simulados: provas anteriores, Simulado Geral e a apostila de cada simulado
 // ---------------------------------------------------------------------------
+//
+// O simulado por matéria saiu: simulado simula a prova inteira. Treinar uma
+// matéria é o "Praticar" de Disciplinas, o caderno em Questões ou o treino
+// dentro da apostila.
 
-test.describe('Simulado por matéria', () => {
+test.describe('Simulados', () => {
   // Mesmo motivo do "Foco do dia": o seed não tem disciplina, e classificá-lo
   // mudaria o agrupamento das fontes para a suíte inteira.
   const ACERVO = [1, 2, 3].map((n) => ({
@@ -1360,8 +1389,8 @@ test.describe('Simulado por matéria', () => {
     tipo_prova: 1,
     numero: n,
     banca: 'FGV',
-    ano: null,
-    enunciado: `Questão ${n} de direito penal, montada para o teste do simulado por matéria.`,
+    ano: 2025,
+    enunciado: `Questão ${n} de direito penal, montada para o teste dos simulados.`,
     alternativas: [`p${n} A`, `p${n} B`, `p${n} C`, `p${n} D`],
     gabarito: 2,
     anulada: false,
@@ -1372,86 +1401,124 @@ test.describe('Simulado por matéria', () => {
     revisada: false,
   }));
 
-  test('"Iniciar Simulado" em Disciplinas abre o formulário com a matéria escolhida', async ({ page }) => {
-    await page.route('**/api/questoes*', (rota) =>
-      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ACERVO) }));
+  const acervo = (page) => page.route('**/api/questoes*', (rota) =>
+    rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ACERVO) }));
 
-    await entrar(page);
-    await page.click('[data-testid="nav-disciplinas"]');
-    await page.click('[data-testid="simular-disciplina"]');
-
-    await expect(page.locator('text=Vamos começar!')).toBeVisible();
-    await expect(page.locator('[data-testid="disciplina-simulado"]')).toHaveValue('Direito Penal');
-    // Pediu 10 (o padrão), a matéria tem 3: a tela avisa em vez de abrir 3 calada.
-    await expect(page.locator('[data-testid="aviso-quantidade"]')).toContainText('3 questões');
-
-    await page.click('[data-testid="iniciar-simulado"]');
-    await expect(page.locator('[data-testid^="sim-q-"]')).toHaveCount(3);
-    // Sem feedback durante a prova: marcar registra a escolha e não revela
-    // nada. Primeiro a marcação tem de ter pegado — sem ela, as checagens de
-    // ausência abaixo passariam até com o clique perdido.
-    await page.click('[data-testid="sim-q-0"] [data-testid="alt-0"]');
-    const q0 = page.locator('[data-testid="sim-q-0"]');
-    await expect(q0.locator('[data-testid="alt-0"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.locator('[data-testid="contador-respondidas"]')).toHaveText('1/3 respondidas');
-    // Maiúscula, e não "gabarito": o cabeçalho da prova diz "o gabarito
-    // aparece quando você finalizar", e esse texto pode (e deve) estar ali.
-    await expect(q0).not.toContainText('Gabarito');
-    await expect(q0).not.toContainText('Sua resposta');
-    await expect(q0.locator('[data-testid="veredito"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="veredito"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid^="revisao-q-"]')).toHaveCount(0);
-
-    // Finaliza sem mandar nada: responder aqui gravaria tentativa de questão
-    // que só existe nesta resposta simulada. Desmarcar não existe, então
-    // recomeça sem responder.
-    await page.reload();
-    await page.click('[data-testid="nav-simulados"]');
-    // A pré-seleção vale para uma abertura: voltar a Simulados cai no hub.
-    await expect(page.locator('[data-testid="hero-simulado-geral"]')).toBeVisible();
-    await page.click('[data-testid="simular-materia"]');
-    await page.click('[data-testid="iniciar-simulado"]');
-    await page.click('[data-testid="finalizar-simulado"]');
-
-    await expect(page.locator('[data-testid="nota-final"]')).toHaveText('0%');
-    await expect(page.locator('[data-testid="revisao-q-0"]')).toContainText('Em branco');
-    await expect(page.locator('[data-testid="revisao-q-0"] [data-testid="explicacao-do-assistente"]')).toBeVisible();
-  });
-
-  test('"Praticar" abre o quiz da matéria a um clique, em Disciplinas e em Simulados', async ({ page }) => {
-    await page.route('**/api/questoes*', (rota) =>
-      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ACERVO) }));
-
+  test('"Praticar" de Disciplinas abre o quiz da matéria a um clique', async ({ page }) => {
+    await acervo(page);
     await entrar(page);
     await page.click('[data-testid="nav-disciplinas"]');
     await page.click('[data-testid="praticar-disciplina"]');
     await expect(page.locator('[data-testid="titulo-da-meta"]')).toContainText('de Direito Penal');
     await expect(page.locator('[data-testid="gerar-quiz"]')).toContainText('3 questões');
-
-    await page.click('[data-testid="nav-simulados"]');
-    await page.click('[data-testid="praticar-materia"]');
-    await expect(page.locator('[data-testid="gerar-quiz"]')).toContainText('3 questões');
   });
 
-  test('matéria pré-selecionada sem questões explica por que não dá para iniciar', async ({ page }) => {
-    await page.route('**/api/questoes*', (rota) =>
-      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ACERVO) }));
+  test('prova anterior incompleta no acervo não abre; o Simulado Geral segue sem o servidor', async ({ page }) => {
+    await acervo(page);
+    // Servidor sem a rota (ou fora do ar): a prova corre do mesmo jeito, e a
+    // tela diz que não haverá apostila.
+    await page.route('**/api/simulados', (rota) => (rota.request().method() === 'POST'
+      ? rota.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"indisponível"}' })
+      : rota.fulfill({ status: 200, contentType: 'application/json', body: '[]' })));
+    await entrar(page);
+    await page.click('[data-testid="nav-simulados"]');
+
+    await expect(page.locator('[data-testid="prova-98"]')).toContainText('3 de 80 questões no acervo');
+    await expect(page.locator('[data-testid="fazer-prova-98"]')).toBeDisabled();
+
+    await page.click('[data-testid="novo-simulado"]');
+    await expect(page.locator('[data-testid="aviso-quantidade"]')).toContainText('3 questões');
+    await page.click('[data-testid="iniciar-simulado"]');
+    await expect(page.locator('[data-testid^="sim-q-"]')).toHaveCount(3);
+
+    // Sem feedback durante a prova: marcar registra a escolha e não revela nada.
+    await page.click('[data-testid="sim-q-0"] [data-testid="alt-0"]');
+    const q0 = page.locator('[data-testid="sim-q-0"]');
+    await expect(q0.locator('[data-testid="alt-0"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-testid="contador-respondidas"]')).toHaveText('1/3 respondidas');
+    await expect(q0).not.toContainText('Gabarito');
+    await expect(page.locator('[data-testid="veredito"]')).toHaveCount(0);
+  });
+
+  test('a apostila mostra o gabarito do simulado e refaz só os erros', async ({ page }) => {
+    await acervo(page);
+    const SIMULADO = {
+      id: 501, modalidade: 'geral', exame: null, tipo: null, questoes: ['9103', '9101', '9102'],
+      status: 'finalizado', refeito: false, iniciado_em: '2026-10-01T12:00:00Z', finalizado_em: '2026-10-01T13:00:00Z',
+      acertos: 1, anuladas: 0, nota: 1, duracao_seg: 3600, fora_do_tempo: false,
+    };
+    await page.route('**/api/simulados', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([SIMULADO]) }));
+    // As três respostas do simulado: 9103 certa, 9101 errada, 9102 em branco.
+    const linha = (id, questao, alternativa, correta) => ({
+      id, questao_id: questao, correta, alternativa, tempo_seg: null, respondida_em: '2026-10-01T12:30:00Z',
+      tipo: null, certeza: null, motivo: null, motivo_nota: null, simulado_id: 501, origem: 'simulado',
+    });
+    await page.route('**/api/tentativas?*', (rota) => (rota.request().method() === 'GET'
+      ? rota.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tentativas: [linha(3, '9102', null, false), linha(2, '9101', 0, false), linha(1, '9103', 2, true)],
+          total: 3, limite: 1000, offset: 0,
+        }),
+      })
+      : rota.continue()));
 
     await entrar(page);
-    // O caminho real é Disciplinas → Simulado com uma matéria que depois some
-    // do acervo; aqui a pré-seleção é posta direto no estado salvo.
-    await page.evaluate(() => {
-      const st = JSON.parse(localStorage.getItem('ma-questoes-state-v1') || '{}');
-      st.screen = 'simulados';
-      st.simulados = { ...(st.simulados || {}), preDisciplina: 'Direito Tributário' };
-      localStorage.setItem('ma-questoes-state-v1', JSON.stringify(st));
-    });
-    await page.reload();
+    await page.click('[data-testid="nav-simulados"]');
+    await page.click('[data-testid="lista-meus"]');
+    await page.click('[data-testid="apostila-501"]');
 
-    await expect(page.locator('text=Vamos começar!')).toBeVisible();
-    await expect(page.locator('[data-testid="disciplina-simulado"]')).toHaveValue('Direito Tributário');
-    await expect(page.locator('[data-testid="iniciar-simulado"]')).toBeDisabled();
-    await expect(page.locator('[data-testid="motivo-desabilitado"]')).toContainText('Direito Tributário não tem questões');
+    const apostila = page.locator('[data-testid="apostila"]');
+    await expect(apostila).toContainText('Acertos1');
+    await expect(apostila).toContainText('Erros1');
+    await expect(apostila).toContainText('Em branco1');
+    await expect(page.locator('[data-testid="treinar-em-branco"]')).toContainText('Treinar as 1 em branco');
+
+    // "Refazer só os erros" leva a errada para o quiz, com gabarito ao responder.
+    await page.click('[data-testid="refazer-erros"]');
+    await expect(page.locator('[data-testid="apostila"]')).toHaveCount(0);
+    await expect(page.locator('text=Questão 1 de direito penal')).toBeVisible();
+  });
+
+  test('aberto com respostas já gravadas oferece concluir o registro, não refazer', async ({ page }) => {
+    await acervo(page);
+    const ABERTO = {
+      id: 502, modalidade: 'geral', exame: null, tipo: null, questoes: ['9101', '9102'],
+      status: 'aberto', refeito: false, iniciado_em: '2026-10-01T12:00:00Z', finalizado_em: null,
+      acertos: null, anuladas: null, nota: null, duracao_seg: null, fora_do_tempo: null,
+    };
+    const finalizados = [];
+    await page.route('**/api/simulados', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ABERTO]) }));
+    await page.route('**/api/simulados/502/finalizar', async (rota) => {
+      finalizados.push(rota.request().postDataJSON());
+      await rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...ABERTO, status: 'finalizado' }) });
+    });
+    // A fila gravou as respostas, mas o /finalizar não chegou ao servidor.
+    await page.route('**/api/tentativas?*', (rota) => (rota.request().method() === 'GET'
+      ? rota.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tentativas: [
+            { id: 11, questao_id: '9101', correta: true, alternativa: 2, tempo_seg: null, respondida_em: '2026-10-01T12:30:00Z', simulado_id: 502, origem: 'simulado' },
+            { id: 12, questao_id: '9102', correta: false, alternativa: 0, tempo_seg: null, respondida_em: '2026-10-01T12:30:00Z', simulado_id: 502, origem: 'simulado' },
+          ],
+          total: 2, limite: 1000, offset: 0,
+        }),
+      })
+      : rota.continue()));
+
+    await entrar(page);
+    await page.click('[data-testid="nav-simulados"]');
+    await expect(page.locator('[data-testid="simulado-sem-registro"]')).toContainText('2 respostas já estão salvas');
+    await expect(page.locator('[data-testid="retomar-simulado"]')).toHaveCount(0);
+
+    await page.click('[data-testid="concluir-registro"]');
+    await expect.poll(() => finalizados.length).toBe(1);
+    expect(finalizados[0]).toEqual({ acertos: 1, anuladas: 0 });
   });
 });
 
@@ -2107,7 +2174,7 @@ test.describe('Card de questão', () => {
     expect(posts).toHaveLength(0);
     await finalizarQuiz(page);
     await verCorrecao(page, 0);
-    await expect(page.locator('[data-testid="veredito"]')).toHaveText('Acertou!');
+    await expect(page.locator('[data-testid="veredito"]')).toHaveText('Acertou.');
     await expect.poll(() => posts.length).toBe(1);
     expect(posts[0]).toMatchObject({ questao_id: '9301', alternativa: 1, correta: true });
 
@@ -2432,7 +2499,7 @@ test.describe('Cronograma', () => {
     const amanha = page.locator(`[data-testid="dia-${await chaveLocal(page, 1)}"]`);
     await expect(amanha).toHaveAttribute('data-folga', 'nao');
     await expect(amanha.locator('[data-testid="bloco-do-dia"]')).toHaveText(/^\d{2}:\d{2} · \d/);
-    await expect(page.locator('[data-testid="ritmo-semana"]')).toContainText('Esta semana, até hoje');
+    await expect(page.locator('[data-testid="semana-titulo"]')).toContainText('Esta semana:');
   });
 
   test('Google Agenda: conectado ao abrir, e sincronizar manda o corpo do contrato', async ({ page }) => {

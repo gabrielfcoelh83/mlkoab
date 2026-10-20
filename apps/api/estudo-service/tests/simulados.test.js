@@ -379,3 +379,100 @@ describe('schema', () => {
     ).rejects.toMatchObject({ code: '23514' });
   });
 });
+
+describe('simulado geral', () => {
+  const geral = (questoes = ['101', '102', '103'], userId = DONO) =>
+    abrir(userId, { modalidade: 'geral', questoes });
+
+  it('abre com a ordem sorteada, sem exame nem caderno', async () => {
+    const res = await geral();
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      modalidade: 'geral', questoes: ['101', '102', '103'], exame: null, tipo: null,
+      status: 'aberto', refeito: false,
+    });
+  });
+
+  it('a prova real segue com modalidade prova e sem lista de questões', async () => {
+    const res = await abrir();
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ modalidade: 'prova', questoes: null, exame: 44, tipo: 1 });
+  });
+
+  it('aceita id numérico e guarda como texto', async () => {
+    const res = await geral([7, 8]);
+    expect(res.status).toBe(201);
+    expect(res.body.questoes).toEqual(['7', '8']);
+  });
+
+  it('valida a lista de questões e a modalidade', async () => {
+    const oitentaEUma = Array.from({ length: 81 }, (_, i) => `q${i}`);
+    // Sem o helper `geral`: o parâmetro padrão dele trocaria o `undefined`.
+    for (const questoes of [undefined, 'abc', [], ['1', '1'], [''], [null], oitentaEUma, ['x'.repeat(65)]]) {
+      const res = await abrir(DONO, { modalidade: 'geral', questoes });
+      expect(res.status).toBe(400);
+    }
+    const res = await abrir(DONO, { modalidade: 'treino', questoes: ['1'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('conta para o limite de um aberto por pessoa, nas duas modalidades', async () => {
+    const primeiro = await geral();
+    const res = await abrir();
+
+    expect(res.status).toBe(409);
+    expect(res.body.simulado_id).toBe(primeiro.body.id);
+    expect((await geral(['9'])).status).toBe(409);
+  });
+
+  it('não aceita nota acima do número de questões sorteadas', async () => {
+    const aberto = await geral();
+    const res = await finalizar(aberto.body.id, { acertos: 4, anuladas: 0 });
+
+    expect(res.status).toBe(400);
+    const { rows } = await pool.query('SELECT status FROM simulados WHERE id = $1', [aberto.body.id]);
+    expect(rows[0].status).toBe('aberto');
+  });
+
+  it('recusa id de questão com espaço nas pontas', async () => {
+    const res = await abrir(DONO, { modalidade: 'geral', questoes: [' 101'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('recebe respostas e finaliza como a prova real', async () => {
+    const aberto = await geral();
+    expect((await responder(aberto.body.id, DONO, '101')).status).toBe(201);
+
+    const res = await finalizar(aberto.body.id, { acertos: 2, anuladas: 0 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ modalidade: 'geral', status: 'finalizado', nota: 2 });
+  });
+
+  it('não marca a prova real como refeita', async () => {
+    const aberto = await geral();
+    await finalizar(aberto.body.id, { acertos: 1, anuladas: 0 });
+
+    const res = await abrir();
+    expect(res.body.refeito).toBe(false);
+  });
+
+  it('aparece na listagem com modalidade e questões', async () => {
+    await geral(['5', '6']);
+    const res = await request(app).get('/simulados').set('Authorization', como(DONO));
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ modalidade: 'geral', questoes: ['5', '6'] });
+  });
+
+  it('o banco recusa geral sem questões e prova sem exame', async () => {
+    await expect(
+      pool.query(`INSERT INTO simulados (user_id, modalidade) VALUES ($1, 'geral')`, [DONO])
+    ).rejects.toMatchObject({ code: '23514' });
+    await expect(
+      pool.query(`INSERT INTO simulados (user_id, tipo) VALUES ($1, 1)`, [DONO])
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+});

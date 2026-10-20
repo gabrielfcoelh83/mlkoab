@@ -321,8 +321,8 @@ export default function VerQuestao({
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               <span style={s.pill(sit.bg, sit.fg)}>{rotuloDaUltima(atual.situacao)}</span>
-              <span style={{ fontSize: 12.5, color: '#7a766f' }}>{procedencia.join(' · ')}</span>
-              <span style={{ fontSize: 12, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>{posicao} de {total}</span>
+              <span style={{ fontSize: 12.5, color: '#6a665f' }}>{procedencia.join(' · ')}</span>
+              <span style={{ fontSize: 12, color: '#6a665f', fontVariantNumeric: 'tabular-nums' }}>{posicao} de {total}</span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
@@ -356,16 +356,16 @@ export default function VerQuestao({
               <Icon name="repeat" color={theme.primary} size={18} style={undefined} /> Revisão concluída
             </div>
             <div style={{ fontSize: 13.5, color: '#4f4b45', lineHeight: 1.6 }}>
-              Você refez {resumoFinal.refeitas} {resumoFinal.refeitas === 1 ? 'questão' : 'questões'}, acertou {resumoFinal.acertos} e {resumoFinal.continuamEmErrei} {resumoFinal.continuamEmErrei === 1 ? 'continua' : 'continuam'} em Errei.
+              Você refez {resumoFinal.refeitas} {resumoFinal.refeitas === 1 ? 'questão' : 'questões'}, acertou {resumoFinal.acertos} e {resumoFinal.continuamEmErrei} {resumoFinal.continuamEmErrei === 1 ? 'continua' : 'continuam'} em Erradas.
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
                 { label: 'Você refez', valor: resumoFinal.refeitas },
                 { label: 'Acertou', valor: resumoFinal.acertos },
-                { label: 'Continua em Errei', valor: resumoFinal.continuamEmErrei },
+                { label: 'Continua em Erradas', valor: resumoFinal.continuamEmErrei },
               ].map((st) => (
                 <div key={st.label} style={{ padding: 12, borderRadius: 8, border: '1px solid #eeebe5' }}>
-                  <div style={{ fontSize: 12.5, color: '#7a766f' }}>{st.label}</div>
+                  <div style={{ fontSize: 12.5, color: '#6a665f' }}>{st.label}</div>
                   <div style={{ ...s.statNum, fontSize: 26, marginTop: 4 }}>{st.valor}</div>
                 </div>
               ))}
@@ -433,7 +433,7 @@ export default function VerQuestao({
                           campo={`alt-${i}`}
                           grifos={grifosDaQuestao}
                           onMudar={mudarGrifos}
-                          style={{ flex: 1, textDecoration: riscada ? 'line-through' : 'none', color: riscada ? '#7a766f' : '#1c1b19' }}
+                          style={{ flex: 1, textDecoration: riscada ? 'line-through' : 'none', color: riscada ? '#6a665f' : '#1c1b19' }}
                         />
                         <BotaoRiscar theme={theme} indice={i} riscada={riscada} onAlternar={alternarRiscoDe} />
                       </div>
@@ -558,7 +558,7 @@ export default function VerQuestao({
               {refazendo ? (
                 <div data-testid="gabarito-travado" style={{ marginTop: 18, padding: 14, background: '#faf9f6', borderRadius: 8, border: '1px solid #eeebe5' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1b19' }}>Gabarito e comentário travados</div>
-                  <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 6, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 6, lineHeight: 1.5 }}>
                     Marque uma alternativa e confirme para ver o gabarito e o comentário. Riscar não responde.
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
@@ -617,7 +617,7 @@ export default function VerQuestao({
               )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 18, paddingTop: 14, borderTop: '1px solid #eeebe5' }}>
-                <span style={{ fontSize: 12, color: '#7a766f' }}>Navegar em:</span>
+                <span style={{ fontSize: 12, color: '#6a665f' }}>Navegar em:</span>
                 <button
                   type="button"
                   data-testid="navegar-disciplina"

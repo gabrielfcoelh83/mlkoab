@@ -56,6 +56,9 @@ export function montarCadernos(questoes = [], tentativas = {}, { materiaDoPlano 
     nuncaRespondidas: d.total - d.respondidas,
     tentativas: d.tentativas,
     pct: taxa(d),
+    // Nível e próximo passo, no mesmo vocabulário de Disciplinas (areas.js).
+    nivel: d.nivel,
+    proximo: d.proximo,
     // Os três temas com mais questão no acervo. "Sem tema" não diz nada.
     temas: temasDaDisciplina(questoes, tentativas, d.nome)
       .filter((t) => t.nome !== 'Sem tema')

@@ -44,7 +44,7 @@ export const TIPOS_DE_MARCADOR = [
 
 // Tipo fora da lista (servidor mais novo, dado adulterado) não pode sumir da
 // tela sem explicação: ganha rótulo e ícone neutros, mas nunca só a cor.
-const TIPO_DESCONHECIDO = { tipo: '', rotulo: 'Marcador', descricao: '', cor: '#7a766f', icone: 'flag' };
+const TIPO_DESCONHECIDO = { tipo: '', rotulo: 'Marcador', descricao: '', cor: '#6a665f', icone: 'flag' };
 
 /** A definição visual de um tipo; nunca `undefined`. */
 export function dadosDoMarcador(tipo) {

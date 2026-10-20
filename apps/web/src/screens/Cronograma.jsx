@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../lib/icons';
 import {
-  planoDaSemana, diasDoMes, resumoDoPlano, ritmoDaSemana, blocoLegivel, duracaoLegivel, eventosDoPlano, intervaloDoPlano,
+  planoDaSemana, diasDoMes, resumoDoPlano, semanaEmDias, blocoLegivel, duracaoLegivel, eventosDoPlano, intervaloDoPlano,
   fusoDoNavegador, resumoDaSincronizacao, mensagemDoCalendario, retornoDoGoogle, searchSemRetorno,
   mesDeslocado, limitesDoCalendario, horarioValido, HORARIO_PADRAO, MINUTOS_PADRAO,
 } from '../lib/agenda';
 import { DIAS_DA_SEMANA } from '../lib/ficha';
 import { diasAteProva } from '../lib/metrics';
-import { ICONE_POR_DISCIPLINA } from '../lib/navegacao';
+import { iconeDaMateria } from '../lib/areas';
 import { HaloBadge } from '@/components/ui/halo-badge';
 import {
   iniciarConexaoGoogleCalendar,
@@ -32,7 +32,7 @@ function confirmarUmaVez(codigo) {
 function Stat({ label, value, accent, testId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 105 }} data-testid={testId}>
-      <span style={{ fontSize: 11, color: '#817b76', letterSpacing: '.03em' }}>{label}</span>
+      <span style={{ fontSize: 11, color: '#6a665f', letterSpacing: '.03em' }}>{label}</span>
       <strong style={{ color: accent || '#272226', fontSize: 15, fontWeight: 650 }}>{value}</strong>
     </div>
   );
@@ -100,7 +100,7 @@ function HorarioDoBloco({ theme, s, bloco, salvarAgenda, perfilCarregado, conect
   return (
     <form onSubmit={salvar} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <label htmlFor="horario-do-bloco" style={{ fontSize: 11, color: '#817b76' }}>Horário do estudo</label>
+        <label htmlFor="horario-do-bloco" style={{ fontSize: 11, color: '#6a665f' }}>Horário do estudo</label>
         <input
           id="horario-do-bloco"
           data-testid="horario-do-bloco"
@@ -116,7 +116,7 @@ function HorarioDoBloco({ theme, s, bloco, salvarAgenda, perfilCarregado, conect
           </button>
         )}
       </div>
-      <div aria-live="polite" style={{ fontSize: 10.5, color: estado.erro ? '#9a3f3f' : '#817b76', maxWidth: 260, textAlign: 'right' }}>
+      <div aria-live="polite" style={{ fontSize: 10.5, color: estado.erro ? '#9a3f3f' : '#6a665f', maxWidth: 260, textAlign: 'right' }}>
         {estado.erro
           || (!perfilCarregado ? 'Seu perfil ainda não carregou.' : null)
           || (estado.salvo
@@ -154,7 +154,7 @@ export default function Cronograma({
   // Barato (sete dias sobre listas já derivadas): calcular por render é mais
   // simples que um useMemo cujas dependências mudam a cada render do App.
   const plano = planoDaSemana({ disciplinas, tentativas: usuarioTentativas, meta, dificuldades, diasDeEstudo, hoje: hojeData });
-  const ritmo = ritmoDaSemana({ tentativas: usuarioTentativas, meta, diasDeEstudo, hoje: hojeData });
+  const semana = semanaEmDias({ tentativas: usuarioTentativas, meta, diasDeEstudo, hoje: hojeData });
   const limites = limitesDoCalendario(hojeData);
   const mesVisto = mesDeslocado(hojeData, deslocamento);
   const calendario = diasDoMes(usuarioTentativas, {
@@ -289,23 +289,24 @@ export default function Cronograma({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <section
-        style={{
-          ...s.card,
-          padding: 24,
-          background: `linear-gradient(135deg, #fff 0%, ${theme.primarySoft} 100%)`,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'absolute', right: -36, top: -62, width: 190, height: 190, borderRadius: '50%', border: `1px solid ${theme.primary}20` }} />
-        <div style={{ position: 'absolute', right: 24, top: 24, width: 74, height: 74, borderRadius: '50%', border: `1px solid ${theme.primary}15` }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'flex-start', position: 'relative' }}>
-          <div>
-            <div style={{ fontSize: 11, color: theme.primary, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase' }}>Seu ritmo de estudo</div>
-            <h2 style={{ ...s.pageTitle, fontSize: 30, margin: '8px 0 4px', maxWidth: 520 }}>Uma semana possível, não perfeita.</h2>
-            <p style={{ ...s.pageSub, maxWidth: 500, lineHeight: 1.55, margin: 0 }}>
-              O cronograma combina sua meta e seus dias de estudo com os assuntos que mais precisam de atenção.
+      {/* A semana em dias cumpridos, no formato da Sequência do Dashboard. A
+          porcentagem ("48% da semana") não dizia o que fazer; "2 de 3 dias"
+          diz. Um dia está cumprido quando as respondidas chegam à meta. */}
+      <section style={{ ...s.card, padding: 24 }} data-testid="ritmo-semana">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 380px' }}>
+            <h2 style={{ ...s.pageTitle, fontSize: 24, margin: 0 }} data-testid="semana-titulo">
+              {semana.diasAteHoje === 0
+                ? 'Esta semana: nenhum dia de estudo até hoje'
+                : `Esta semana: ${semana.cumpridos} de ${semana.diasAteHoje} ${semana.diasAteHoje === 1 ? 'dia de estudo cumprido' : 'dias de estudo cumpridos'}`}
+            </h2>
+            <p style={{ ...s.pageSub, lineHeight: 1.55, margin: '6px 0 0' }}>
+              Uma semana possível, não perfeita.{' '}
+              {hoje.folga
+                ? 'Hoje é folga.'
+                : hoje.respondidas >= meta
+                  ? `Hoje você cumpriu o dia: ${hoje.respondidas} de ${meta} questões.`
+                  : `Hoje você respondeu ${hoje.respondidas} de ${meta} questões. Faltam ${meta - hoje.respondidas} para cumprir o dia.`}
             </p>
           </div>
           {/* Dias e tempo de estudo moram em "Meu perfil de estudo", no meio das
@@ -313,7 +314,7 @@ export default function Cronograma({
           <button
             type="button"
             data-testid="ajustar-plano"
-            style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 7, background: '#ffffffb8' }}
+            style={{ ...s.btnOutline, display: 'flex', alignItems: 'center', gap: 7 }}
             onClick={() => go('configuracoes', { ancora: 'meu-perfil-de-estudo' })}
           >
             <Icon name="settings" color={theme.primary} size={14} />
@@ -321,7 +322,35 @@ export default function Cronograma({
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, marginTop: 25, paddingTop: 18, borderTop: `1px solid ${theme.primary}18`, position: 'relative' }}>
+        <div
+          role="img"
+          aria-label={`Semana de domingo a sábado: ${semana.cumpridos} dias cumpridos de ${semana.diasNaSemana} dias de estudo`}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 8, marginTop: 18, maxWidth: 520 }}
+        >
+          {semana.dias.map((d) => {
+            const parcial = d.hoje && d.estudo && !d.cumprido ? Math.min(100, Math.round((d.respondidas / meta) * 100)) : 0;
+            return (
+              <div key={d.chave} data-estudo={d.estudo ? 'sim' : 'nao'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <span
+                  title={!d.estudo ? 'Folga' : d.cumprido ? `Cumprido: ${d.respondidas} questões` : d.futuro ? 'Ainda não chegou' : `${d.respondidas} de ${meta} questões`}
+                  style={{
+                    width: '100%', height: 30, borderRadius: 6, position: 'relative', overflow: 'hidden',
+                    background: !d.estudo ? '#f1efea' : d.cumprido ? theme.primary : '#eeebe5',
+                    boxShadow: d.hoje ? `0 0 0 2px ${theme.primary}` : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {parcial > 0 && <i style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: `${parcial}%`, background: `${theme.primary}55` }} />}
+                  {!d.estudo && <Icon name="circle-check" color="#a8a39a" size={14} />}
+                  {d.cumprido && <Icon name="check" color="#fff" size={14} />}
+                </span>
+                <span style={{ fontSize: 11, color: d.hoje ? theme.primaryDark : '#6a665f', fontWeight: d.hoje ? 700 : 500 }}>{d.dow.slice(0, 1)}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, marginTop: 20, paddingTop: 16, borderTop: '1px solid #eeebe5' }}>
           <Stat label="Meta por dia de estudo" value={`${meta} questões`} />
           <Stat
             label="Hoje"
@@ -329,21 +358,9 @@ export default function Cronograma({
             value={hoje.folga ? (bonusDeHoje ? `Folga · ${hoje.respondidas} respondidas` : 'Folga') : `${hoje.respondidas}/${meta} respondidas`}
             accent={hoje.folga ? '#5d5755' : hoje.pct >= 100 ? '#4a7a4a' : theme.primaryDark}
           />
+          <Stat label="Semana passada" testId="semana-passada" value={`${semana.semanaPassada} ${semana.semanaPassada === 1 ? 'dia cumprido' : 'dias cumpridos'}`} />
+          <Stat label="Recorde em 12 semanas" testId="semana-recorde" value={`${semana.recorde} ${semana.recorde === 1 ? 'dia' : 'dias'} numa semana`} />
           <Stat label="Prova" value={faltam != null ? `${faltam} dias` : 'sem data'} />
-          <div style={{ flex: 1, minWidth: 200, maxWidth: 340, marginLeft: 'auto' }} data-testid="ritmo-semana">
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#817b76', marginBottom: 7 }}>
-              <span>Esta semana, até hoje</span>
-              <strong style={{ color: theme.primaryDark }} data-testid="ritmo-pct">{ritmo.pct == null ? '—' : `${ritmo.pct}%`}</strong>
-            </div>
-            <div style={{ height: 7, borderRadius: 8, background: '#ffffffa8', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, ritmo.pct || 0)}%`, background: theme.primary, borderRadius: 8, transition: 'width 320ms var(--ease-out)' }} />
-            </div>
-            <div style={{ fontSize: 10.5, color: '#817b76', marginTop: 6 }}>
-              {ritmo.dias === 0
-                ? 'Nenhum dia de estudo nesta semana ainda.'
-                : `${ritmo.respondidas} de ${ritmo.meta} questões em ${ritmo.dias} ${ritmo.dias === 1 ? 'dia' : 'dias'} de estudo, desde domingo.`}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -352,7 +369,7 @@ export default function Cronograma({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 17, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ ...s.sectionTitle, fontFamily: "'Newsreader', Georgia, serif", fontSize: 22, fontWeight: 500 }}>Próximos dias</h2>
-              <div style={{ fontSize: 12, color: '#817b76', marginTop: 4 }} data-testid="dias-de-estudo">
+              <div style={{ fontSize: 12, color: '#6a665f', marginTop: 4 }} data-testid="dias-de-estudo">
                 {nomesDosDias
                   ? `Seus dias de estudo: ${nomesDosDias}. Os outros são folga.`
                   : 'Todo dia é dia de estudo. Escolha seus dias em "Ajustar plano".'}
@@ -386,8 +403,8 @@ export default function Cronograma({
                 }}
               >
                 <div style={{ width: 43, textAlign: 'center', flex: 'none' }}>
-                  <div style={{ fontSize: 10, color: dia.hoje ? theme.primary : '#817b76', fontWeight: 700 }}>{dia.dow}</div>
-                  <div style={{ fontSize: 19, lineHeight: 1.25, fontWeight: 700, color: dia.folga ? '#817b76' : '#2c282b' }}>{dia.dia}</div>
+                  <div style={{ fontSize: 10, color: dia.hoje ? theme.primary : '#6a665f', fontWeight: 700 }}>{dia.dow}</div>
+                  <div style={{ fontSize: 19, lineHeight: 1.25, fontWeight: 700, color: dia.folga ? '#6a665f' : '#2c282b' }}>{dia.dia}</div>
                   {dia.hoje && <HaloBadge live interactive={false} layout={false} style={{ marginTop: 3 }}>Hoje</HaloBadge>}
                 </div>
 
@@ -398,7 +415,7 @@ export default function Cronograma({
                     </div>
                     <div style={{ flex: 1, minWidth: 170 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: '#5d5755' }}>Folga</div>
-                      <div style={{ fontSize: 11.5, color: '#817b76', marginTop: 2 }}>
+                      <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 2 }}>
                         {dia.respondidas > 0
                           ? `Fora da sua rotina — ${dia.respondidas} ${dia.respondidas === 1 ? 'questão respondida' : 'questões respondidas'} mesmo assim.`
                           : 'Fora dos dias de estudo da sua ficha. Descansar também conta.'}
@@ -408,12 +425,12 @@ export default function Cronograma({
                 ) : (
                   <>
                     <div style={{ width: 36, height: 36, borderRadius: 11, background: `${dia.cor || theme.primary}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-                      <Icon name={ICONE_POR_DISCIPLINA[dia.disciplina] || 'book-open'} color={dia.cor || theme.primary} size={18} />
+                      <Icon name={iconeDaMateria(dia.disciplina)} color={dia.cor || theme.primary} size={18} />
                     </div>
 
                     <div style={{ flex: 1, minWidth: 170 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: '#2c282b' }}>{dia.disciplina || 'Livre'}</div>
-                      <div style={{ fontSize: 11.5, color: '#817b76', marginTop: 2 }}>{dia.motivo || 'Nenhuma disciplina disponível ainda'}</div>
+                      <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 2 }}>{dia.motivo || 'Nenhuma disciplina disponível ainda'}</div>
                       <div style={{ fontSize: 11, color: theme.primaryDark, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }} data-testid="bloco-do-dia">
                         <Icon name="clock" color={theme.primary} size={11} />
                         {blocoLegivel(bloco)}
@@ -425,7 +442,7 @@ export default function Cronograma({
                         <div style={{ fontSize: 11.5, color: '#9a938e' }}>planejado</div>
                       ) : (
                         <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#817b76', marginBottom: 5 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#6a665f', marginBottom: 5 }}>
                             <span>Progresso</span><strong style={{ color: '#4a4544' }}>{dia.respondidas}/{dia.meta}</strong>
                           </div>
                           <div style={{ height: 6, borderRadius: 8, background: '#eeeae5', overflow: 'hidden' }}>
@@ -468,7 +485,7 @@ export default function Cronograma({
               {SEMANA.map((dia, i) => <div key={i} style={{ fontSize: 10, color: '#9a938e', fontWeight: 700, paddingBottom: 4 }}>{dia}</div>)}
               {calendario.celulas.map((cell, i) => <CalendarDay key={cell.chave || `v${i}`} cell={cell} theme={theme} />)}
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 14, fontSize: 10.5, color: '#817b76', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 14, fontSize: 10.5, color: '#6a665f', flexWrap: 'wrap' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 7, height: 7, borderRadius: '50%', background: theme.primary, display: 'block' }} />Hoje</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 7, height: 7, borderRadius: '50%', background: theme.primarySoft, display: 'block' }} />Estudou</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 7, height: 7, borderRadius: '50%', border: `1px dashed ${theme.primary}`, display: 'block' }} />Planejado</span>
@@ -503,7 +520,7 @@ export default function Cronograma({
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#352e33' }}>Google Agenda</div>
-                <p style={{ margin: '4px 0 0', fontSize: 11.5, lineHeight: 1.5, color: '#817b76' }}>
+                <p style={{ margin: '4px 0 0', fontSize: 11.5, lineHeight: 1.5, color: '#6a665f' }}>
                   {calendar.connected
                     ? `Conectado. Sincronizar cria um evento por dia de estudo dos próximos 7 dias (${blocoLegivel(bloco)}) e tira os das folgas.`
                     : 'Leve os blocos da sua semana para a agenda que já usa.'}
@@ -511,7 +528,7 @@ export default function Cronograma({
                 {calendar.erro && <div role="alert" data-testid="google-erro" style={{ marginTop: 9, fontSize: 11, color: '#9a3f3f', lineHeight: 1.45 }}>{calendar.erro}</div>}
                 {calendar.aviso && <div role="status" data-testid="google-aviso" style={{ marginTop: 9, fontSize: 11, color: '#3f6b3f', lineHeight: 1.45 }}>{calendar.aviso}</div>}
                 {calendar.loading ? (
-                  <span data-testid="google-verificando" style={{ display: 'inline-block', marginTop: 10, fontSize: 10.5, color: '#817b76' }}>Verificando conexão…</span>
+                  <span data-testid="google-verificando" style={{ display: 'inline-block', marginTop: 10, fontSize: 10.5, color: '#6a665f' }}>Verificando conexão…</span>
                 ) : calendar.statusFalhou ? (
                   <button type="button" data-testid="google-tentar-de-novo" style={{ ...s.btnOutline, marginTop: 10, padding: '6px 9px', fontSize: 10.5 }} onClick={() => setVerificacao((n) => n + 1)}>
                     Tentar de novo

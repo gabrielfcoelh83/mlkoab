@@ -248,7 +248,7 @@ await (async () => {
   const acervo = [{ disciplina: 'Direito Penal' }, { disciplina: 'Ética Profissional' }, { disciplina: null }, { disciplina: 'Direito Penal' }];
   const doAcervo = opcoesDeDificuldade(acervo);
   exigir(JSON.stringify(doAcervo) === JSON.stringify(['Direito Penal', 'Ética Profissional']), `as opções saem do acervo, sem repetir e sem "sem classificação": ${doAcervo}`);
-  exigir(opcoesDeDificuldade([]).length === DISCIPLINAS_OAB.length && DISCIPLINAS_OAB.length === 18, 'sem acervo, as 18 matérias conhecidas');
+  exigir(opcoesDeDificuldade([]).length === DISCIPLINAS_OAB.length && DISCIPLINAS_OAB.length === 20, 'sem acervo, as 20 matérias conhecidas');
   exigir(opcoesDeDificuldade(acervo, ['Direito Ambiental']).includes('Direito Ambiental'), 'matéria já marcada não pode sumir da lista');
 
   exigir(rotuloDosDias([1, 2, 3, 4, 5, 6, 0]) === 'todos os dias', 'sete dias = todos os dias');

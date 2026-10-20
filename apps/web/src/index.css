@@ -22,7 +22,7 @@
   --tema-acento: #B4532A;
   --card: #fff;
   --muted: #f1efea;
-  --muted-foreground: #7a766f;
+  --muted-foreground: #6a665f;
   --foreground: #1c1b19;
   --border: #e6e2da;
   --ring: var(--primary);
@@ -262,17 +262,29 @@ button:not(:disabled):active {
 /* A entrada é só opacidade: o modal não "voa" de lugar nenhum, ele cobre a
    tela. Em celular, ocupa a tela inteira e as ações do cartão descem para
    baixo do conteúdo — o dedo alcança sem disputar espaço com o enunciado. */
-.ver-questao-fundo {
+.ver-questao-fundo,
+.dialogo-fundo {
   animation: so-opacidade 160ms var(--ease-out) both;
 }
 
 @media (max-width: 560px) {
-  .ver-questao-fundo {
+  .ver-questao-fundo,
+  .dialogo-fundo {
     padding: 0 !important;
     align-items: stretch !important;
   }
 
-  .ver-questao-painel {
+  .dialogo-acoes {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .dialogo-cabecalho {
+    flex-wrap: wrap;
+  }
+
+  .ver-questao-painel,
+  .dialogo-painel {
     width: 100% !important;
     height: 100%;
     max-height: none !important;
@@ -316,4 +328,82 @@ button:not(:disabled):active {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+/* --- Login: entrada em sequência, linha que alterna e vitrine ----------- */
+.login-hero .entra {
+  animation: login-entra 700ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+@keyframes login-entra {
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* Duas frases no mesmo lugar, uma sobe e dá lugar à outra. O texto completo
+   fica para o leitor de tela em `.so-leitor`; as frases animadas são
+   aria-hidden. */
+.alterna {
+  display: grid;
+  overflow: hidden;
+}
+
+.alterna > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: login-alterna 6s var(--ease-out) infinite;
+}
+
+.alterna > span:nth-child(2) {
+  animation-delay: 3s;
+}
+
+@keyframes login-alterna {
+  0% { opacity: 0; transform: translateY(100%); }
+  8%, 42% { opacity: 1; transform: none; }
+  50%, 100% { opacity: 0; transform: translateY(-100%); }
+}
+
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.vitrine {
+  animation: vitrine-abre 900ms var(--ease-out) backwards;
+}
+
+.vitrine .vitrine-quadro {
+  animation: vitrine-quadro 1s var(--ease-out) backwards;
+}
+
+@keyframes vitrine-abre {
+  from { opacity: 0; transform: translateY(36px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes vitrine-quadro {
+  from { transform: scale(0.97); filter: blur(6px); }
+  to { transform: none; filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-hero .entra,
+  .vitrine,
+  .vitrine .vitrine-quadro {
+    animation: none;
+  }
+
+  .alterna > span {
+    animation: none;
+  }
+
+  .alterna > span:first-child {
+    opacity: 1;
+  }
 }

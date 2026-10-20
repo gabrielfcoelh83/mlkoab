@@ -12,7 +12,7 @@ export default function Favoritos({ theme, s, revisao, revisarQuestoes, definirM
           <h2 style={{ ...s.sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="flag" color={theme.primary} size={20} />Questões com marcador
           </h2>
-          <div style={{ fontSize: 13, color: '#7a766f', marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: '#6a665f', marginTop: 4 }}>
             {marcadas.length > 0
               ? `${marcadas.length} ${marcadas.length === 1 ? 'questão marcada' : 'questões marcadas'} · guardadas na sua conta`
               : 'Marque questões com a bandeira para revisá-las rapidamente aqui.'}
@@ -26,7 +26,7 @@ export default function Favoritos({ theme, s, revisao, revisarQuestoes, definirM
       </div>
 
       {marcadas.length === 0 ? (
-        <div style={{ ...s.card, textAlign: 'center', color: '#7a766f', fontSize: 13.5, padding: '40px 20px', lineHeight: 1.6 }}>
+        <div style={{ ...s.card, textAlign: 'center', color: '#6a665f', fontSize: 13.5, padding: '40px 20px', lineHeight: 1.6 }}>
           Você ainda não marcou nenhuma questão.
           <br />A bandeira aparece ao lado da questão, no quiz e em Revisões.
         </div>
@@ -54,10 +54,10 @@ export default function Favoritos({ theme, s, revisao, revisarQuestoes, definirM
                   </div>
                   <div style={{ fontSize: 13, color: '#4f4b45', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.enunciado}</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {q.topico && <span style={s.pill('#f1efea', '#7a766f')}>{q.topico}</span>}
+                    {q.topico && <span style={s.pill('#f1efea', '#6a665f')}>{q.topico}</span>}
                     {item.tentativas > 0
-                      ? <span style={s.pill('#f1efea', '#7a766f')}>{item.acertos}/{item.tentativas} · {item.pct}%</span>
-                      : <span style={s.pill('#f1efea', '#7a766f')}>ainda não respondida</span>}
+                      ? <span style={s.pill('#f1efea', '#6a665f')}>{item.acertos}/{item.tentativas} · {item.pct}%</span>
+                      : <span style={s.pill('#f1efea', '#6a665f')}>ainda não respondida</span>}
                     {item.marcador && dados && (
                       <span style={{ ...s.pill(`${dados.cor}14`, dados.cor), display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                         <Icon name={dados.icone} color={dados.cor} size={11} /> {dados.rotulo}

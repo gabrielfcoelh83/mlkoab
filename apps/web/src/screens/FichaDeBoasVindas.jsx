@@ -71,7 +71,7 @@ export default function FichaDeBoasVindas({
           <div style={{ ...s.logoMark, width: 30, height: 30 }} aria-hidden="true"><Icon name="scale" color="#fff" size={16} /></div>
           <div style={{ ...s.logoText, fontSize: 18 }}>mlkoab</div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            {email && <span style={{ fontSize: 12, color: '#7a766f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>}
+            {email && <span style={{ fontSize: 12, color: '#6a665f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>}
             <button type="button" data-testid="sair" onClick={onSair} style={{ background: 'none', border: 'none', color: theme.primary, fontWeight: 600, fontSize: 12.5, padding: 4 }}>
               Sair
             </button>
@@ -98,7 +98,7 @@ export default function FichaDeBoasVindas({
           </section>
         ) : (
           <form onSubmit={avancar} noValidate style={cartao} aria-labelledby="ficha-titulo">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 12, color: '#7a766f', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 12, color: '#6a665f', marginBottom: 8 }}>
               <span data-testid="ficha-progresso">Passo {passo + 1} de {PASSOS.length}</span>
               <span>Ficha de boas-vindas</span>
             </div>

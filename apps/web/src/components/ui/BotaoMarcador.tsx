@@ -57,7 +57,7 @@ function marcarDicaVista() {
 
 const coresFixas = {
   texto: '#1c1b19',
-  mudo: '#7a766f',
+  mudo: '#6a665f',
   linha: '#e6e2da',
   papel: '#faf9f6',
 };

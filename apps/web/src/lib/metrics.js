@@ -465,3 +465,80 @@ export function formatarDuracao(segundos) {
   const resto = minutos % 60;
   return resto === 0 ? `${horas}h` : `${horas}h ${String(resto).padStart(2, '0')}min`;
 }
+
+// ---------------------------------------------------------------------------
+// 9) Séries para os cartões de métrica (valor, variação e mini-curva)
+// ---------------------------------------------------------------------------
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/**
+ * Semana a semana, as últimas `semanas` janelas de 7 dias terminando hoje:
+ * respondidas, acertos, taxa e tempo médio. O rótulo é o dia em que a janela
+ * começa ("13 out"). Janela sem respostas fica com taxa e tempo `null`: o
+ * gráfico não desenha queda a zero que não aconteceu.
+ *
+ * Janela móvel, e não semana de calendário, para "esta semana" na segunda de
+ * manhã não comparar um dia com sete.
+ */
+export function seriesSemanais(usuarioTentativas = {}, semanas = 12, hoje = new Date()) {
+  const hojeKey = dateKey(hoje);
+  const baldes = Array.from({ length: semanas }, () => ({ total: 0, acertos: 0, tempo: 0, comTempo: 0 }));
+
+  for (const t of flattenTentativas(usuarioTentativas)) {
+    if (!t.dia) continue;
+    const i = semanas - 1 - Math.floor(diffDays(hojeKey, t.dia) / 7);
+    if (i < 0 || i > semanas - 1) continue;
+    const b = baldes[i];
+    b.total += 1;
+    if (t.correta) b.acertos += 1;
+    if (t.tempo != null) { b.tempo += t.tempo; b.comTempo += 1; }
+  }
+
+  return baldes.map((b, i) => {
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 7 * (semanas - 1 - i) - 6);
+    return {
+      rotulo: `${inicio.getDate()} ${MESES_CURTOS[inicio.getMonth()]}`,
+      total: b.total,
+      acertos: b.acertos,
+      erros: b.total - b.acertos,
+      taxa: b.total > 0 ? Math.round((b.acertos / b.total) * 100) : null,
+      tempoMedioSeg: b.comTempo > 0 ? Math.round(b.tempo / b.comTempo) : null,
+    };
+  });
+}
+
+/** Respondidas por dia nos últimos `dias` dias, do mais antigo para hoje. */
+export function respondidasNosUltimosDias(usuarioTentativas = {}, dias = 14, hoje = new Date()) {
+  const porDia = {};
+  for (const t of flattenTentativas(usuarioTentativas)) {
+    if (t.dia) porDia[t.dia] = (porDia[t.dia] || 0) + 1;
+  }
+  return Array.from({ length: dias }, (_, i) => {
+    const d = new Date(hoje);
+    d.setDate(d.getDate() - (dias - 1 - i));
+    return porDia[dateKey(d)] || 0;
+  });
+}
+
+/** A maior sequência de dias seguidos com estudo, em todo o histórico. */
+export function recordeDeSequencia(usuarioTentativas = {}) {
+  const dias = [...new Set(flattenTentativas(usuarioTentativas).map((t) => t.dia).filter(Boolean))].sort();
+  let recorde = 0;
+  let atual = 0;
+  for (let i = 0; i < dias.length; i++) {
+    atual = i > 0 && diffDays(dias[i], dias[i - 1]) === 1 ? atual + 1 : 1;
+    recorde = Math.max(recorde, atual);
+  }
+  return recorde;
+}
+
+/**
+ * Variação percentual de `anterior` para `atual`. `null` quando não há base
+ * (semana passada vazia): "+100%" para quem começou agora seria ruído.
+ */
+export function variacaoPercentual(anterior, atual) {
+  if (anterior == null || atual == null || anterior === 0) return null;
+  return Math.round(((atual - anterior) / anterior) * 1000) / 10;
+}

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 // - Passar o mouse (ou focar e usar as setas) mostra o valor de cada ponto/barra.
 
 const TINTA = '#1c1b19';
-const MUDO = '#7a766f';
+const MUDO = '#6a665f';
 const GRADE = '#eeebe5';
 const SUPERFICIE = '#fff';
 

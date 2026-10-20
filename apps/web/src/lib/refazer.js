@@ -34,8 +34,8 @@ export function resumoDoRefazer(refeitas = 0, acertos = 0) {
 /** A frase do resultado, logo depois de "Confirmar resposta". */
 export function resultadoDoRefazer(acertou) {
   return acertou
-    ? 'Acertou desta vez. A questão sai de Errei.'
-    : 'Errou de novo. A questão continua em Errei.';
+    ? 'Acertou desta vez. A questão sai de Erradas.'
+    : 'Errou de novo. A questão continua em Erradas.';
 }
 
 /**

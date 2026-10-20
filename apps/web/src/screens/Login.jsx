@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '../lib/icons';
 import {
   login, criarConta, entrarComGoogle, solicitarRedefinicaoSenha, redefinirSenha,
@@ -9,6 +9,17 @@ import BotaoGoogle from '../components/ui/BotaoGoogle';
 // separadas custariam rota, estado de navegação e um caminho de volta — para
 // dois formulários que diferem em dois campos.
 //
+// À esquerda, o hero com o texto do produto; "Conhecer a plataforma" abre a
+// vitrine das telas logo abaixo e rola até ela. O formulário fica sempre à
+// vista: quem já tem conta não precisa de um clique a mais para entrar.
+
+// Telas reais do app, capturadas com dados fictícios do ambiente de teste.
+const VITRINE = [
+  { chave: 'disciplinas', rotulo: 'Disciplinas', texto: 'O que cada matéria vale na prova e quanto você leva dela hoje.' },
+  { chave: 'dashboard', rotulo: 'Dashboard', texto: 'Semana, acerto, tempo e sequência, com o próximo passo.' },
+  { chave: 'cronograma', rotulo: 'Cronograma', texto: 'Uma semana possível, contada em dias de estudo cumpridos.' },
+];
+
 export default function Login({ theme, s, onEntrar }) {
   const parametros = new URLSearchParams(window.location.search);
   const tokenRedefinicao = parametros.get('token') || '';
@@ -21,20 +32,22 @@ export default function Login({ theme, s, onEntrar }) {
   const [mensagem, setMensagem] = useState(null);
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [vitrineAberta, setVitrineAberta] = useState(false);
+  const [telaDaVitrine, setTelaDaVitrine] = useState(VITRINE[0].chave);
+  const vitrineRef = useRef(null);
+  const emailRef = useRef(null);
+
+  const conhecer = () => {
+    setVitrineAberta(true);
+    // Depois do render que monta a seção: sem o quadro seguinte, o scroll
+    // mirava um elemento que ainda não existia.
+    window.requestAnimationFrame(() => vitrineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const criando = modo === 'criar';
   const esquecendo = modo === 'esqueci';
   const redefinindo = modo === 'redefinir';
 
-  const trocarModo = () => {
-    setModo(criando ? 'entrar' : 'criar');
-    // O erro é sempre sobre o formulário que acabou de sair de cena; mantê-lo
-    // faria "este e-mail já tem conta" aparecer sobre a tela de entrar, onde
-    // ele não faz sentido nenhum.
-    setErro(null);
-    setMensagem(null);
-    setConfirmacao('');
-  };
 
   const submeter = async (e) => {
     e.preventDefault();
@@ -122,45 +135,51 @@ export default function Login({ theme, s, onEntrar }) {
   const rotulo = { ...s.statLabel, display: 'block', marginBottom: 5 };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100%', background: theme.bg }}>
-      {/* Painel editorial: diz o que o produto é antes de pedir a senha. Some
-          em tela estreita (classe do Tailwind, porque estilo inline não tem
-          media query), onde o formulário sozinho já ocupa a tela. */}
-      <aside
-        className="hidden lg:flex"
-        style={{ flex: '0 0 46%', flexDirection: 'column', justifyContent: 'space-between', padding: '48px 56px', background: theme.primaryDark, color: '#f4efe8' }}
+    <div style={{ height: '100vh', width: '100%', overflowY: 'auto', background: theme.bg }}>
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+      {/* O hero: o texto do produto, como o dono escreveu. Some em tela
+          estreita (classe do Tailwind, porque estilo inline não tem media
+          query), onde o formulário sozinho já ocupa a tela; lá o resumo vai
+          acima do formulário. */}
+      <section
+        className="hidden lg:flex login-hero"
+        style={{ flex: '0 0 54%', flexDirection: 'column', justifyContent: 'center', padding: '48px 64px', position: 'relative' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name="scale" color="#f4efe8" size={20} />
-          <span style={{ ...s.logoText, color: '#f4efe8' }}>mlkoab</span>
+        <div style={{ position: 'absolute', top: 32, left: 64, display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={s.logoMark}><Icon name="scale" color="#ffffff" size={16} /></div>
+          <span style={s.logoText}>mlkoab</span>
         </div>
-        <div style={{ maxWidth: 460 }}>
-          <span style={{ display: 'inline-block', marginBottom: 16, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(244,239,232,.35)', fontSize: 11.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(244,239,232,.85)' }}>
-            Versão beta
+        <span className="entra" style={{ '--i': 0, display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 600, color: '#355E35', background: '#E8F0E6', borderRadius: 999, padding: '4px 11px' }}>
+          <Icon name="check" color="#355E35" size={13} /> Estudo organizado para a OAB
+        </span>
+        <h1 className="entra" style={{ '--i': 1, margin: '18px 0 0', fontFamily: s.pageTitle.fontFamily, fontWeight: 500, fontSize: 52, lineHeight: 1.08, letterSpacing: '-0.02em', color: '#1c1b19', maxWidth: '18ch', textWrap: 'balance' }}>
+          Tudo o que você precisa para ser aprovado na OAB
+          <span style={{ display: 'block', marginTop: '0.25em', fontSize: '0.56em', lineHeight: 1.3, color: theme.primary, letterSpacing: '-0.01em' }}>
+            <span className="so-leitor">da 1ª à 2ª fase com dados e organização</span>
+            <span className="alterna" aria-hidden="true">
+              <span>da 1ª à 2ª fase com dados</span>
+              <span>da 1ª à 2ª fase com organização</span>
+            </span>
           </span>
-          <div style={{ fontFamily: s.pageTitle.fontFamily, fontSize: 40, lineHeight: 1.12, letterSpacing: '-0.02em', fontWeight: 400 }}>
-            Plataforma de estudos para a OAB
-          </div>
-          <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 0, borderTop: '1px solid rgba(244,239,232,.18)' }}>
-            {[
-              ['Acervo', 'Questões oficiais e simulados dos Exames de Ordem, da 1ª e da 2ª fase'],
-              ['Organização', 'Pensada, desenvolvida e metrificada para organizar seus estudos: plano, metas e desempenho'],
-            ].map(([t, d]) => (
-              <div key={t} style={{ display: 'flex', gap: 16, padding: '12px 0', borderBottom: '1px solid rgba(244,239,232,.18)', fontSize: 13.5 }}>
-                <span style={{ width: 96, flex: 'none', color: 'rgba(244,239,232,.6)' }}>{t}</span>
-                <span>{d}</span>
-              </div>
-            ))}
-          </div>
+        </h1>
+        <p className="entra" style={{ '--i': 2, margin: '18px 0 0', fontSize: 15, lineHeight: 1.6, color: '#4f4b45', maxWidth: '54ch' }}>
+          Pratique com questões oficiais da 1ª e 2ª fase e simulados completos. Acompanhe sua evolução através de métricas detalhadas em uma estrutura organizada para potencializar seu aprendizado.
+        </p>
+        <div className="entra" style={{ '--i': 3, display: 'flex', gap: 10, marginTop: 26, flexWrap: 'wrap' }}>
+          <button type="button" data-testid="conhecer-plataforma" onClick={conhecer} style={{ ...s.btnOutline, padding: '11px 18px', fontSize: 13.5 }}>
+            Conhecer a plataforma
+          </button>
+          <button type="button" onClick={() => emailRef.current?.focus()} style={{ ...s.btnPrimary, padding: '11px 18px', fontSize: 13.5 }}>
+            Fazer login <Icon name="chevron-right" color="#fff" size={14} />
+          </button>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(244,239,232,.55)' }}>Versão beta</div>
-      </aside>
+      </section>
 
       {/* minWidth 0: item flex não encolhe abaixo do conteúdo por padrão, e o
           form de 360px + 48px de padding davam 408px — rolagem horizontal em
           qualquer celular com menos de 408px de largura. */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <form onSubmit={submeter} style={{ width: 360, maxWidth: '100%' }}>
+      <form onSubmit={submeter} style={{ ...s.card, padding: 28, width: 400, maxWidth: '100%' }}>
         <div className="flex lg:hidden" style={{ alignItems: 'center', gap: 9, marginBottom: 20 }}>
           <div style={s.logoMark}>
             <Icon name="scale" color="#ffffff" size={17} />
@@ -205,6 +224,7 @@ export default function Login({ theme, s, onEntrar }) {
         </label>}
         {!redefinindo && <input
           id="campo-email"
+          ref={emailRef}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -344,6 +364,38 @@ export default function Login({ theme, s, onEntrar }) {
         </nav>
       </form>
       </div>
+    </div>
+
+    {vitrineAberta && (
+      <section ref={vitrineRef} data-testid="vitrine" className="vitrine" style={{ padding: '48px 24px 64px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, scrollMarginTop: 16 }}>
+        <h2 style={{ ...s.pageTitle, fontSize: 30, textAlign: 'center' }}>Por dentro da plataforma</h2>
+        <div role="tablist" aria-label="Telas" style={{ display: 'inline-flex', background: '#ece9e3', borderRadius: 8, padding: 3 }}>
+          {VITRINE.map((t) => (
+            <button
+              key={t.chave}
+              role="tab"
+              aria-selected={telaDaVitrine === t.chave}
+              onClick={() => setTelaDaVitrine(t.chave)}
+              style={{ border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: telaDaVitrine === t.chave ? '#fff' : 'transparent', color: telaDaVitrine === t.chave ? '#1c1b19' : '#4f4b45' }}
+            >
+              {t.rotulo}
+            </button>
+          ))}
+        </div>
+        <p style={{ ...s.pageSub, margin: 0, textAlign: 'center' }}>{VITRINE.find((t) => t.chave === telaDaVitrine)?.texto}</p>
+        <div className="vitrine-quadro" style={{ width: 'min(1040px, 100%)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 0 0 1px rgba(28,27,25,.08), 0 24px 48px -16px rgba(28,27,25,.22)', background: '#fff' }}>
+          <img
+            key={telaDaVitrine}
+            src={`/vitrine/${telaDaVitrine}.jpg`}
+            alt={`Tela ${VITRINE.find((t) => t.chave === telaDaVitrine)?.rotulo} do mlkoab, com dados de exemplo`}
+            width={1920}
+            height={1200}
+            style={{ display: 'block', width: '100%', height: 'auto' }}
+          />
+        </div>
+        <span style={{ fontSize: 12, color: '#6a665f' }}>Telas com dados de exemplo.</span>
+      </section>
+    )}
     </div>
   );
 }

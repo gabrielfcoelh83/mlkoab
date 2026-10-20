@@ -38,6 +38,8 @@ export default defineConfig({
       '/api/tentativas': GATEWAY,
       // Marcadores das questões (chute, não sabia, refazer, dúvida).
       '/api/marcadores': GATEWAY,
+      // Simulados registrados no servidor (prova real e simulado geral).
+      '/api/simulados': GATEWAY,
       '/api/questoes': GATEWAY,
       // `/api/users` entrou junto com o perfil real (nome, e-mail, meta, data
       // da prova). Esquecer esta linha não quebra nada visível: o pedido cai

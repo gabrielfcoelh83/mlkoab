@@ -329,6 +329,11 @@ resposta à prova (FK, mesmo banco).
 - Resposta com `simulado_id` tem `origem = 'simulado'` (preenchida se vier
   ausente; outra origem é 400). O INSERT confere o simulado aberto com
   `FOR SHARE`, para não gravar numa prova que outra aba está finalizando.
+- **Simulado geral** (migration 009): `modalidade = 'geral'`, sem exame nem
+  tipo, com `questoes` (TEXT[], 1 a 80 ids na ordem sorteada pelo front). Serve
+  para a pessoa rever a prova e refazer os erros. Entra no mesmo limite de um
+  aberto por pessoa e nunca marca `refeito`. Um CHECK garante a coerência:
+  prova exige exame e tipo; geral exige a lista.
 - **Limite conhecido:** `acertos` e `anuladas` vêm do front, que tem o
   gabarito (o questoes_db não é acessível daqui). A pessoa pode declarar a
   nota que quiser, e só engana a si mesma. Se houver ranking entre alunos, o
@@ -336,7 +341,7 @@ resposta à prova (FK, mesmo banco).
 
 | Gateway | Serviço | Retorno |
 |---------|---------|---------|
-| `POST /api/simulados` | estudo | corpo `{exame, tipo}` → 201; 409 `{error, simulado_id}` se já houver um aberto |
+| `POST /api/simulados` | estudo | corpo `{exame, tipo}` (prova) ou `{modalidade: 'geral', questoes}` → 201 com `modalidade` e `questoes`; 409 `{error, simulado_id}` se já houver um aberto |
 | `GET /api/simulados` | estudo | do próprio usuário, mais recente primeiro, teto 200; `?paginado=1&limite&offset` → `{simulados, total, limite, offset}` |
 | `POST /api/simulados/:id/finalizar` | estudo | corpo `{acertos, anuladas}` → 200; 409 se já encerrado; 404 se não é seu |
 | `POST /api/simulados/:id/abandonar` | estudo | encerra sem nota; as tentativas ficam |

@@ -726,13 +726,13 @@ export default function App() {
   // `emLote`: a fila do simulado (`registrarRespostas`) cuida da faixa de erro
   // uma vez só, no fim — resposta por resposta, cada chamada apagaria a
   // mensagem da falha anterior.
-  const registrar = ({ questaoId, correta, alternativa, tempoSeg, origem }, { emLote = false } = {}) => {
+  const registrar = ({ questaoId, correta, alternativa, tempoSeg, origem, simuladoId }, { emLote = false } = {}) => {
     if (!emLote) setErroSync(null);
     const epoch = sessaoEpoch.current;
 
     const pendente = (async () => {
       try {
-        const tentativa = await registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem });
+        const tentativa = await registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem, simuladoId });
 
         // Saiu enquanto o POST estava no ar: a tentativa foi gravada e
         // pertence a quem a respondeu, mas não pode voltar para a tela de
@@ -791,13 +791,16 @@ export default function App() {
         },
       );
 
-      if (sessaoEpoch.current !== epoch) return;
       // Interrompida (o token mudou em outra aba, por exemplo), o que não
       // chegou a sair também não foi salvo — não só o que falhou.
       const naoSalvas = interrompida ? respostas.length - salvos : falhas;
+      if (sessaoEpoch.current !== epoch) return { naoSalvas, sessaoTrocou: true };
       if (naoSalvas > 0) {
         setErroSync(`${naoSalvas} de ${respostas.length} respostas deste simulado não foram salvas no servidor.`);
       }
+      // O simulado registrado no servidor só é finalizado depois da fila: o
+      // serviço recusa resposta num simulado já encerrado.
+      return { naoSalvas, sessaoTrocou: false };
     } finally {
       respostasNaFila.current -= respostas.length;
     }
@@ -849,6 +852,18 @@ export default function App() {
       .then((erro) => { if (erro) setErroSync(erro); });
   };
 
+  // A pergunta anotada numa "Dúvida" é a justificativa do erro dita de outro
+  // jeito: numa questão errada ainda sem justificativa, ela vira a nota. Com
+  // justificativa já escrita, nada muda — a pessoa decidiu o texto dela.
+  const preencherJustificativaDaDuvida = (questaoId, nota) => {
+    if (!nota) return;
+    const ultima = ultimaTentativa(usuarioTentativas, questaoId);
+    if (!ultima || ultima.correta === true || ultima.id == null || ultima.motivo || ultima.motivo_nota) return;
+
+    void anotarMotivo(questaoId, ultima.id, { motivo: null, nota })
+      .then((erro) => { if (erro) setErroSync(erro); });
+  };
+
   const definirMarcador = async (questaoId, { tipo, nota } = {}) => {
     if (!tipo) return null;
     const id = String(questaoId);
@@ -862,6 +877,7 @@ export default function App() {
 
     definirMarcadorLocal(id, { questaoId: id, tipo, nota: texto });
     if (tipo === 'nao_sabia') preencherMotivoNaoSabia(questaoId);
+    if (tipo === 'duvida') preencherJustificativaDaDuvida(questaoId, texto);
 
     try {
       const salvo = await salvarMarcadorNaApi(questaoId, { tipo, nota: texto });
@@ -974,7 +990,7 @@ export default function App() {
   if (perfil.estado === 'carregando') {
     return (
       <div style={{ ...s.app, alignItems: 'center', justifyContent: 'center' }}>
-        <div role="status" data-testid="carregando-perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#7a766f', fontSize: 13 }}>
+        <div role="status" data-testid="carregando-perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#6a665f', fontSize: 13 }}>
           <div className="esqueleto" style={{ ...s.logoMark, width: 40, height: 40, borderRadius: 12 }} aria-hidden="true">
             <Icon name="scale" color="#fff" size={20} />
           </div>
@@ -1120,7 +1136,7 @@ export default function App() {
               <span>Questões discursivas</span>
             </div>
           </nav>
-          <div style={{ fontSize: 12, color: '#7a766f', lineHeight: 1.5, padding: '8px 12px 0' }}>
+          <div style={{ fontSize: 12, color: '#6a665f', lineHeight: 1.5, padding: '8px 12px 0' }}>
             As 4 questões de cada exame, com o padrão de resposta oficial da FGV. A peça não entra.
           </div>
           {linhaDoPerfil}
@@ -1325,10 +1341,10 @@ export default function App() {
           style={{
             marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8,
             justifyContent: recolhida ? 'center' : 'flex-start', border: 'none', background: 'transparent',
-            color: '#7a766f', fontSize: 12.5, fontWeight: 500, whiteSpace: 'nowrap',
+            color: '#6a665f', fontSize: 12.5, fontWeight: 500, whiteSpace: 'nowrap',
           }}
         >
-          <Icon name={recolhida ? 'panel-left-open' : 'panel-left-close'} color="#7a766f" size={18} />
+          <Icon name={recolhida ? 'panel-left-open' : 'panel-left-close'} color="#6a665f" size={18} />
           {!recolhida && 'Recolher menu'}
         </button>
 
@@ -1358,7 +1374,7 @@ export default function App() {
                 <div>
                   <div style={{ fontSize: 11, color: theme.primary, fontWeight: 600 }}>Faltam</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#1c1b19' }}>{diasProva} dias</div>
-                  <div style={{ fontSize: 10.5, color: '#7a766f' }}>para a prova da OAB</div>
+                  <div style={{ fontSize: 10.5, color: '#6a665f' }}>para a prova da OAB</div>
                 </div>
               </div>
             ) : (
@@ -1371,7 +1387,7 @@ export default function App() {
                 <span style={{ display: 'block' }}>
                   <span style={{ display: 'block', fontSize: 11, color: theme.primary, fontWeight: 600 }}>Sua prova</span>
                   <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: '#1c1b19' }}>Definir data</span>
-                  <span style={{ display: 'block', fontSize: 10.5, color: '#7a766f' }}>para contar os dias</span>
+                  <span style={{ display: 'block', fontSize: 10.5, color: '#6a665f' }}>para contar os dias</span>
                 </span>
               </button>
             )}
@@ -1410,14 +1426,14 @@ export default function App() {
                       type="button"
                       aria-label="Fechar avisos"
                       onClick={() => setNotifOpen(false)}
-                      style={{ color: '#7a766f', fontWeight: 700, background: 'none', border: 'none', padding: '0 4px', fontSize: 'inherit' }}
+                      style={{ color: '#6a665f', fontWeight: 700, background: 'none', border: 'none', padding: '0 4px', fontSize: 'inherit' }}
                     >
                       ×
                     </button>
                   </div>
 
                   {notificacoes.length === 0 ? (
-                    <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 10, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 10, lineHeight: 1.5 }}>
                       Nada pendente por aqui. Meta batida e nenhuma questão errada esperando revisão.
                     </div>
                   ) : (
@@ -1429,7 +1445,7 @@ export default function App() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1c1b19', lineHeight: 1.35 }}>{n.titulo}</div>
-                            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 2 }}>{n.texto}</div>
+                            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 2 }}>{n.texto}</div>
                             {n.acao && (
                               <button
                                 type="button"
@@ -1494,6 +1510,7 @@ export default function App() {
               setSim={(p) => updateSlice('simulados', p)}
               setResultadosHistorico={(p) => updateSlice('resultados_historico', p)}
               registrarRespostas={registrarRespostas}
+              sessaoExpirou={encerrarSessao}
               acervo={acervo}
               recarregarAcervo={() => setRecarga((n) => n + 1)}
             />
@@ -1518,7 +1535,6 @@ export default function App() {
               {...screenProps}
               disc={state.disciplinas}
               setDisc={(p) => updateSlice('disciplinas', p)}
-              simularDisciplina={(nome) => setState((st) => ({ ...st, screen: 'simulados', simulados: { ...st.simulados, preDisciplina: nome } }))}
             />
           )}
           {state.screen === 'anotacoes' && (

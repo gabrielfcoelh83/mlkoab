@@ -12,7 +12,8 @@ export const NAV = [
   { key: 'revisoes', icon: 'repeat', label: 'Revisões' },
   { key: 'desempenho', icon: 'trending-up', label: 'Desempenho' },
   { key: 'estatisticas', icon: 'chart-column', label: 'Estatísticas' },
-  { key: 'favoritos', icon: 'star', label: 'Favoritos' },
+  // A chave segue 'favoritos' (estado salvo e testes); a tela é a dos marcadores.
+  { key: 'favoritos', icon: 'flag', label: 'Marcadores' },
   { key: 'disciplinas', icon: 'library', label: 'Disciplinas' },
   { key: 'anotacoes', icon: 'notebook-pen', label: 'Anotações' },
   { key: 'configuracoes', icon: 'settings', label: 'Configurações' },
@@ -49,32 +50,14 @@ export const PAGE_META = {
   revisoes: { title: 'Revisões', sub: 'O que você errou e o que marcou para rever.' },
   desempenho: { title: 'Desempenho', sub: 'Acompanhe sua evolução ao longo do tempo.' },
   estatisticas: { title: 'Estatísticas', sub: 'Números detalhados do seu estudo.' },
-  favoritos: { title: 'Favoritos', sub: 'Questões que você marcou como favoritas.' },
+  favoritos: { title: 'Marcadores', sub: 'As questões que você marcou para voltar, com o motivo de cada uma.' },
   disciplinas: { title: 'Disciplinas', sub: 'Seu aproveitamento em cada matéria do acervo.' },
   anotacoes: { title: 'Anotações', sub: 'Seus resumos e ideias, guardados neste navegador.' },
   configuracoes: { title: 'Configurações', sub: 'Preferências da sua conta.' },
 };
 
-export const ICONE_POR_DISCIPLINA = {
-  'Direito Constitucional': 'landmark',
-  'Direito Administrativo': 'clipboard-list',
-  'Direito Civil': 'users',
-  'Direito Penal': 'gavel',
-  'Direito Processual Penal': 'gavel',
-  'Direito Processual Civil': 'file-text',
-  'Direito do Trabalho': 'briefcase',
-  'Direito Processual do Trabalho': 'briefcase',
-  'Direito Tributário': 'file-text',
-  'Direito Empresarial': 'building-2',
-  'Direito Internacional': 'book-open',
-  'Direito Ambiental': 'library',
-  'Direito do Consumidor': 'clipboard-list',
-  'Direito da Criança e do Adolescente': 'users',
-  'Direito Previdenciário': 'clipboard-list',
-  'Direitos Humanos': 'scale',
-  'Ética Profissional': 'scale',
-  'Filosofia do Direito': 'brain',
-};
+// O ícone de cada matéria mora em `areas.js` (`iconeDaMateria`), junto com a
+// área e a cor: as três precisam andar juntas em todas as telas.
 
 export const TAG_CORES = {
   'Resumo': ['#EEEBE5', null], // o segundo valor vira theme.primaryDark na tela
