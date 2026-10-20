@@ -849,6 +849,18 @@ export default function App() {
       .then((erro) => { if (erro) setErroSync(erro); });
   };
 
+  // A pergunta anotada numa "Dúvida" é a justificativa do erro dita de outro
+  // jeito: numa questão errada ainda sem justificativa, ela vira a nota. Com
+  // justificativa já escrita, nada muda — a pessoa decidiu o texto dela.
+  const preencherJustificativaDaDuvida = (questaoId, nota) => {
+    if (!nota) return;
+    const ultima = ultimaTentativa(usuarioTentativas, questaoId);
+    if (!ultima || ultima.correta === true || ultima.id == null || ultima.motivo || ultima.motivo_nota) return;
+
+    void anotarMotivo(questaoId, ultima.id, { motivo: null, nota })
+      .then((erro) => { if (erro) setErroSync(erro); });
+  };
+
   const definirMarcador = async (questaoId, { tipo, nota } = {}) => {
     if (!tipo) return null;
     const id = String(questaoId);
@@ -862,6 +874,7 @@ export default function App() {
 
     definirMarcadorLocal(id, { questaoId: id, tipo, nota: texto });
     if (tipo === 'nao_sabia') preencherMotivoNaoSabia(questaoId);
+    if (tipo === 'duvida') preencherJustificativaDaDuvida(questaoId, texto);
 
     try {
       const salvo = await salvarMarcadorNaApi(questaoId, { tipo, nota: texto });

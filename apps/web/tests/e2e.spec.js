@@ -1223,7 +1223,7 @@ test.describe('Revisões — refazer no modal', () => {
     expect(posts).toHaveLength(0);
     await modal.locator('[data-testid="confirmar-resposta"]').click();
 
-    await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Errei.');
+    await expect(modal.locator('[data-testid="resultado-refazer"]')).toContainText('Acertou desta vez. A questão sai de Erradas.');
     // Acertou: a marcada é o próprio gabarito, e o rótulo é "Gabarito · sua resposta agora".
     await expect(modal.locator('[data-testid="ver-questao-alternativa-2"]')).toContainText('Gabarito · sua resposta agora');
 
@@ -1241,7 +1241,7 @@ test.describe('Revisões — refazer no modal', () => {
     const resumo = modal.locator('[data-testid="resumo-refazer"]');
     await expect(resumo).toContainText('Você refez 1');
     await expect(resumo).toContainText('acertou 1');
-    await expect(resumo).toContainText('0 continuam em Errei');
+    await expect(resumo).toContainText('0 continuam em Erradas');
 
     await modal.locator('[data-testid="resumo-voltar"]').click();
     await expect(modal).toHaveCount(0);
@@ -2432,7 +2432,7 @@ test.describe('Cronograma', () => {
     const amanha = page.locator(`[data-testid="dia-${await chaveLocal(page, 1)}"]`);
     await expect(amanha).toHaveAttribute('data-folga', 'nao');
     await expect(amanha.locator('[data-testid="bloco-do-dia"]')).toHaveText(/^\d{2}:\d{2} · \d/);
-    await expect(page.locator('[data-testid="ritmo-semana"]')).toContainText('Esta semana, até hoje');
+    await expect(page.locator('[data-testid="semana-titulo"]')).toContainText('Esta semana:');
   });
 
   test('Google Agenda: conectado ao abrir, e sincronizar manda o corpo do contrato', async ({ page }) => {

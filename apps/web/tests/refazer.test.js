@@ -62,11 +62,11 @@ exigir(ORIGEM_DO_REFAZER === 'revisao', `a origem do refazer mudou: ${ORIGEM_DO_
 // ---------------------------------------------------------------------------
 
 exigir(
-  resultadoDoRefazer(true) === 'Acertou desta vez. A questão sai de Errei.',
+  resultadoDoRefazer(true) === 'Acertou desta vez. A questão sai de Erradas.',
   `frase de acerto inesperada: ${resultadoDoRefazer(true)}`,
 );
 exigir(
-  resultadoDoRefazer(false) === 'Errou de novo. A questão continua em Errei.',
+  resultadoDoRefazer(false) === 'Errou de novo. A questão continua em Erradas.',
   `frase de erro inesperada: ${resultadoDoRefazer(false)}`,
 );
 

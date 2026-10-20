@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../lib/icons';
-import { iconeDaMateria, corDaMateria } from '../lib/areas';
 import { corrigirSimulado, respostasParaRegistrar, situacaoDaResposta, sortearQuestoes, tempoDeProvaMinutos } from '../lib/simulado';
 import ConfigSimulado from '../components/ui/ConfigSimulado';
 import Cronometro from '../components/ui/Cronometro';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MOTIVOS_DO_ERRO, NOTA_DO_MOTIVO_MAX, rotuloDoMotivo } from '../../lib/revisao';
 
-// "Por que errei?" — a anotação do Caderno de Erros, presa à última tentativa
+// "Justificativa" (antes "Por que errei?") — a anotação do Caderno de Erros, presa à última tentativa
 // (a errada). Opcional: fechado, é um link discreto; aberto, os motivos da
 // lista e uma nota livre. Salvar sem nada escolhido apaga a anotação.
 //
@@ -37,7 +37,7 @@ export default function MotivoDoErro({ theme, s, questaoId, tentativa, anotarMot
   if (!aberto) {
     return temAnotacao ? (
       <div data-testid={`motivo-${questaoId}`} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
-        <span style={{ color: '#6a665f' }}>Por que errei:</span>
+        <span style={{ color: '#6a665f' }}>Justificativa:</span>
         {tentativa.motivo && <span style={s.pill('#F6E4E1', '#8F2F29')}>{rotuloDoMotivo(tentativa.motivo)}</span>}
         {tentativa.motivo_nota && <span style={{ color: '#4f4b45', fontStyle: 'italic' }}>{tentativa.motivo_nota}</span>}
         <button data-testid={`motivo-editar-${questaoId}`} onClick={abrir} style={{ background: 'none', border: 'none', color: theme.primaryDark, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
@@ -46,7 +46,7 @@ export default function MotivoDoErro({ theme, s, questaoId, tentativa, anotarMot
       </div>
     ) : (
       <button data-testid={`motivo-abrir-${questaoId}`} onClick={abrir} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: theme.primaryDark, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-        + Por que errei? <span style={{ fontWeight: 400, color: '#6a665f' }}>(opcional)</span>
+        + Justificativa <span style={{ fontWeight: 400, color: '#6a665f' }}>(opcional)</span>
       </button>
     );
   }

@@ -1,6 +1,6 @@
 import { Icon } from '../lib/icons';
 import { temasDaDisciplina } from '../lib/disciplinas';
-import { iconeDaMateria, corDaMateria } from '../lib/areas';
+import { iconeDaMateria } from '../lib/areas';
 
 // A lista era fixa: oito matérias com "35h 20m estudadas" e "85% de
 // aproveitamento" escritos no código. Abrir uma delas mostrava cinco tópicos

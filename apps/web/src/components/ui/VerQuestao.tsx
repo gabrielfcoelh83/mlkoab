@@ -356,13 +356,13 @@ export default function VerQuestao({
               <Icon name="repeat" color={theme.primary} size={18} style={undefined} /> Revisão concluída
             </div>
             <div style={{ fontSize: 13.5, color: '#4f4b45', lineHeight: 1.6 }}>
-              Você refez {resumoFinal.refeitas} {resumoFinal.refeitas === 1 ? 'questão' : 'questões'}, acertou {resumoFinal.acertos} e {resumoFinal.continuamEmErrei} {resumoFinal.continuamEmErrei === 1 ? 'continua' : 'continuam'} em Errei.
+              Você refez {resumoFinal.refeitas} {resumoFinal.refeitas === 1 ? 'questão' : 'questões'}, acertou {resumoFinal.acertos} e {resumoFinal.continuamEmErrei} {resumoFinal.continuamEmErrei === 1 ? 'continua' : 'continuam'} em Erradas.
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
                 { label: 'Você refez', valor: resumoFinal.refeitas },
                 { label: 'Acertou', valor: resumoFinal.acertos },
-                { label: 'Continua em Errei', valor: resumoFinal.continuamEmErrei },
+                { label: 'Continua em Erradas', valor: resumoFinal.continuamEmErrei },
               ].map((st) => (
                 <div key={st.label} style={{ padding: 12, borderRadius: 8, border: '1px solid #eeebe5' }}>
                   <div style={{ fontSize: 12.5, color: '#6a665f' }}>{st.label}</div>
