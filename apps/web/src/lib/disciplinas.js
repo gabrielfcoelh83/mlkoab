@@ -14,6 +14,11 @@
 // Aqui não há número inventado: tudo vem das questões carregadas e das
 // tentativas que a pessoa realmente registrou.
 
+import { areaDaMateria, nivelDaMateria, perdaEsperada, pesoDaMateria, proximoPasso } from './areas.js';
+
+// Matéria das 20 da prova usa a cor da área (`areas.js`). A paleta por hash
+// abaixo fica para o que estiver fora da tabela (grafia nova do acervo).
+//
 // Paleta fixa, atribuída por hash do nome. Não é enfeite: a cor da disciplina
 // aparece em três telas diferentes e precisa ser a MESMA nas três, sem depender
 // da ordem em que a lista chegou.
@@ -26,6 +31,8 @@ const PALETA = [
 
 export function corDaDisciplina(nome) {
   if (!nome) return '#9a958d';
+  const area = areaDaMateria(nome);
+  if (area) return area.cor;
 
   let hash = 0;
   for (let i = 0; i < nome.length; i++) {
@@ -104,6 +111,13 @@ export function montarDisciplinas(questoes = [], tentativas = {}) {
       cobertura: d.total > 0 ? Math.round((d.respondidas / d.total) * 100) : 0,
       tempoMedioSeg: d.amostrasDeTempo > 0 ? Math.round(d.tempoSeg / d.amostrasDeTempo) : null,
       status: statusDe(d.tentativas, d.acertos),
+      // Leitura gamificada da mesma conta: nível de 1 a 4, quanto a matéria
+      // vale na prova e quanto ela custa hoje (ver areas.js).
+      area: areaDaMateria(d.nome)?.chave ?? null,
+      nivel: nivelDaMateria(d.tentativas, d.acertos),
+      proximo: proximoPasso(d.tentativas, d.acertos),
+      peso: pesoDaMateria(d.nome),
+      perda: perdaEsperada(d.nome, d.tentativas, d.acertos),
     }))
     // Sem classificação vai para o fim: é o balde do que ainda não foi
     // classificado, não uma matéria.

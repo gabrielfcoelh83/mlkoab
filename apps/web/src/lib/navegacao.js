@@ -55,26 +55,8 @@ export const PAGE_META = {
   configuracoes: { title: 'Configurações', sub: 'Preferências da sua conta.' },
 };
 
-export const ICONE_POR_DISCIPLINA = {
-  'Direito Constitucional': 'landmark',
-  'Direito Administrativo': 'clipboard-list',
-  'Direito Civil': 'users',
-  'Direito Penal': 'gavel',
-  'Direito Processual Penal': 'gavel',
-  'Direito Processual Civil': 'file-text',
-  'Direito do Trabalho': 'briefcase',
-  'Direito Processual do Trabalho': 'briefcase',
-  'Direito Tributário': 'file-text',
-  'Direito Empresarial': 'building-2',
-  'Direito Internacional': 'book-open',
-  'Direito Ambiental': 'library',
-  'Direito do Consumidor': 'clipboard-list',
-  'Direito da Criança e do Adolescente': 'users',
-  'Direito Previdenciário': 'clipboard-list',
-  'Direitos Humanos': 'scale',
-  'Ética Profissional': 'scale',
-  'Filosofia do Direito': 'brain',
-};
+// O ícone de cada matéria mora em `areas.js` (`iconeDaMateria`), junto com a
+// área e a cor: as três precisam andar juntas em todas as telas.
 
 export const TAG_CORES = {
   'Resumo': ['#EEEBE5', null], // o segundo valor vira theme.primaryDark na tela

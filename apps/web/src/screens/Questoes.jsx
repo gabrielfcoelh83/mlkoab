@@ -39,7 +39,7 @@ function Aviso({ s, icone, cor, titulo, texto, acao }) {
         <Icon name={icone} color="#fff" size={24} />
       </div>
       <div style={{ fontSize: 19, fontWeight: 700, color: '#1c1b19', marginTop: 14 }}>{titulo}</div>
-      <div style={{ fontSize: 13.5, color: '#7a766f', marginTop: 6, maxWidth: 440, lineHeight: 1.55 }}>{texto}</div>
+      <div style={{ fontSize: 13.5, color: '#6a665f', marginTop: 6, maxWidth: 440, lineHeight: 1.55 }}>{texto}</div>
       {acao && (
         <button style={{ ...s.btnPrimary, marginTop: 18, padding: '12px 22px', fontSize: 13.5 }} onClick={acao.onClick}>
           {acao.rotulo}
@@ -90,14 +90,14 @@ function CadernoCard({ theme, s, testid, cor, selo, canto, titulo, descricao, da
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14, paddingTop: 12, borderTop: '1px solid #eeebe5' }}>
           {dados.map(([rotulo, valor]) => (
             <div key={rotulo}>
-              <div style={{ fontSize: 10.5, color: '#7a766f' }}>{rotulo}</div>
+              <div style={{ fontSize: 10.5, color: '#6a665f' }}>{rotulo}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1b19', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{valor}</div>
             </div>
           ))}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 12, borderTop: '1px solid #eeebe5' }}>
-        <span style={{ fontSize: 11.5, color: '#7a766f' }}>{rodape}</span>
+        <span style={{ fontSize: 11.5, color: '#6a665f' }}>{rodape}</span>
         <button
           type="button"
           data-testid={`${testid}-estudar`}
@@ -357,7 +357,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
 
   if (current) {
     if (current.dificuldade) {
-      dificuldadePill = s.pill('#faf9f6', DIFICULDADE_COR[current.dificuldade] || '#7a766f');
+      dificuldadePill = s.pill('#faf9f6', DIFICULDADE_COR[current.dificuldade] || '#6a665f');
     }
     // Corrigindo, a questão está "respondida" mesmo em branco: o gabarito
     // aparece igual, só sem alternativa da pessoa para marcar de vermelho.
@@ -441,7 +441,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                   {meta.batida && 'Mais '}{tamanho} {tamanho === 1 ? 'questão' : 'questões'}
                   {nomeDaMateria && <> de {nomeDaMateria}</>}
                 </div>
-                <div style={{ fontSize: 13.5, color: '#7a766f', marginTop: 6, lineHeight: 1.55, textWrap: 'pretty' }}>
+                <div style={{ fontSize: 13.5, color: '#6a665f', marginTop: 6, lineHeight: 1.55, textWrap: 'pretty' }}>
                   {modo === 'escolhida'
                     ? 'Matéria escolhida por você, no lugar da do plano.'
                     : modo === 'misto' && criterio === 'disciplina'
@@ -502,7 +502,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
               </div>
               {/* Quando a matéria tem menos questões que a meta, o número do
                   botão não bate com o que falta — e precisa dizer por quê. */}
-              <div data-testid="tamanho-do-quiz" style={{ fontSize: 12, color: '#7a766f', lineHeight: 1.5, marginTop: 8 }}>
+              <div data-testid="tamanho-do-quiz" style={{ fontSize: 12, color: '#6a665f', lineHeight: 1.5, marginTop: 8 }}>
                 {availablePool.length < tamanhoAlvo && `${nomeDaMateria || 'O acervo'} tem só ${availablePool.length}. `}
                 Nunca respondidas vêm primeiro.
               </div>
@@ -514,12 +514,12 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
                 <div>
                   <h2 style={{ ...s.sectionTitle, fontSize: 17 }}>Cadernos de questões</h2>
-                  <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 2 }}>Escolha um caderno para estudar agora, fora da meta do dia.</div>
+                  <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 2 }}>Escolha um caderno para estudar agora, fora da meta do dia.</div>
                 </div>
                 {/* Botões com `aria-pressed`, não `role="radio"`: rádio exige um só
                     Tab no grupo e setas para trocar, que aqui não existem. */}
                 <div role="group" aria-label="Ordenar cadernos" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
-                  <span style={{ color: '#7a766f' }} aria-hidden="true">Ordenar:</span>
+                  <span style={{ color: '#6a665f' }} aria-hidden="true">Ordenar:</span>
                   {[['peso', 'Mais cobradas na prova'], ['pendentes', 'Mais pendentes']].map(([valor, rotulo]) => (
                     <button
                       key={valor}
@@ -586,7 +586,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                       <Icon name="library" color={theme.primary} size={20} />
                     </span>
                     <span style={{ ...s.sectionTitle, fontSize: 16 }}>{todosOsCadernos ? 'Mostrar menos' : 'Escolher outra matéria'}</span>
-                    <span style={{ fontSize: 12.5, color: '#7a766f' }}>
+                    <span style={{ fontSize: 12.5, color: '#6a665f' }}>
                       {todosOsCadernos ? `Voltar às ${CADERNOS_INICIAIS} primeiras` : `Ver todas as ${cadernos.materias.length} matérias do acervo`}
                     </span>
                   </button>
@@ -606,7 +606,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                 <button type="button" style={{ background: 'none', border: 'none', color: theme.primary, fontSize: 13, fontWeight: 600 }} onClick={exitQuiz}>← Encerrar quiz</button>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 12.5, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>Questão {position} de {total}</div>
+                <div style={{ fontSize: 12.5, color: '#6a665f', fontVariantNumeric: 'tabular-nums' }}>Questão {position} de {total}</div>
                 {respondendo && (
                   <button type="button" data-testid="revisar-respostas" style={{ ...s.btnOutline, padding: '5px 10px', fontSize: 12 }} onClick={abrirRevisao}>
                     Revisar e finalizar
@@ -632,9 +632,9 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                 const cores = {
                   certa: { background: '#4A7A4A', color: '#fff', border: '1px solid #3E6B3E' },
                   errada: { background: '#B4413A', color: '#fff', border: '1px solid #9E3630' },
-                  branco: { background: '#eeebe5', color: '#7a766f', border: '1px solid #e6e2da' },
+                  branco: { background: '#eeebe5', color: '#6a665f', border: '1px solid #e6e2da' },
                   marcada: { background: theme.primary, color: '#fff', border: `1px solid ${theme.primaryDark}` },
-                  vazia: { background: '#fff', color: '#7a766f', border: '1px solid #e6e2da' },
+                  vazia: { background: '#fff', color: '#6a665f', border: '1px solid #e6e2da' },
                 }[estadoPos];
                 const rotulo = { certa: 'certa', errada: 'errada', branco: 'em branco', marcada: 'respondida', vazia: 'sem resposta' }[estadoPos];
                 const atual = pos === quest.idx;
@@ -729,7 +729,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                     }}
                   >
                     <div style={alt.radioStyle} />
-                    <b style={{ fontSize: 13.5, color: '#7a766f', flex: 'none', opacity: alt.riscada ? 0.5 : 1 }}>{letra(alt.i)})</b>
+                    <b style={{ fontSize: 13.5, color: '#6a665f', flex: 'none', opacity: alt.riscada ? 0.5 : 1 }}>{letra(alt.i)})</b>
                     <div
                       data-riscada={alt.riscada ? 'sim' : 'nao'}
                       style={{ flex: 1, fontSize: 13.5, textDecoration: alt.riscada ? 'line-through' : 'none', opacity: alt.riscada ? 0.5 : 1 }}
@@ -777,14 +777,14 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                 questao={current}
                 style={{ marginTop: 18, padding: 16, borderRadius: 12, background: '#faf9f6', border: '1px solid #eeebe5' }}
               >
-                <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 10 }}>
+                <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 10 }}>
                   Gabarito oficial: alternativa {letra(current.correta)}.
                 </div>
               </GabaritoComentado>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 12.5, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: 12.5, color: '#6a665f', fontVariantNumeric: 'tabular-nums' }}>
                 {corrigindo ? (
                   <>Acertos: <b style={{ color: '#4A7A4A' }}>{quest.certas}</b> · Erros: <b style={{ color: '#B4413A' }}>{quest.erradas}</b> · Em branco: <b>{brancas}</b></>
                 ) : (
@@ -820,7 +820,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <h2 style={{ ...s.pageTitle, fontSize: 22 }}>Revise antes de finalizar</h2>
-                <div style={{ fontSize: 13, color: '#7a766f', marginTop: 6, maxWidth: 560, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 13, color: '#6a665f', marginTop: 6, maxWidth: 560, lineHeight: 1.5 }}>
                   Clique numa questão para voltar a ela e mudar a resposta. O gabarito só aparece depois de finalizar.
                 </div>
               </div>
@@ -848,14 +848,14 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                       onClick={() => irPara(pos)}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', border: 'none', background: 'transparent', textAlign: 'left', borderRadius: 6 }}
                     >
-                      <span style={{ width: 28, flex: 'none', fontSize: 12.5, fontWeight: 600, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>{pos + 1}</span>
+                      <span style={{ width: 28, flex: 'none', fontSize: 12.5, fontWeight: 600, color: '#6a665f', fontVariantNumeric: 'tabular-nums' }}>{pos + 1}</span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#4f4b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {q.disciplina && <b style={{ color: '#1c1b19', fontWeight: 600 }}>{q.disciplina} · </b>}{q.enunciado}
                       </span>
                       {alt != null ? (
                         <span style={s.pill(theme.primarySoft, theme.primaryDark)}>Marcou {letra(alt)}</span>
                       ) : (
-                        <span style={s.pill('#f1efea', '#7a766f')}>Em branco</span>
+                        <span style={s.pill('#f1efea', '#6a665f')}>Em branco</span>
                       )}
                     </button>
                   </li>
@@ -881,8 +881,8 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                 <Icon name="trophy" color="#fff" size={24} />
               </div>
               <div style={{ fontSize: 19, fontWeight: 700, color: '#1c1b19', marginTop: 14 }}>Quiz concluído!</div>
-              <div style={{ fontSize: 13.5, color: '#7a766f', marginTop: 6 }}>Você acertou {quest.certas} de {total} questões ({scorePct}%)</div>
-              <div data-testid="resumo-resultado" style={{ fontSize: 12.5, color: '#7a766f', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: 13.5, color: '#6a665f', marginTop: 6 }}>Você acertou {quest.certas} de {total} questões ({scorePct}%)</div>
+              <div data-testid="resumo-resultado" style={{ fontSize: 12.5, color: '#6a665f', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
                 {quest.erradas} {quest.erradas === 1 ? 'errada' : 'erradas'} · {total - quest.certas - quest.erradas} em branco
                 {total - quest.certas - quest.erradas > 0 && ' (não entraram no histórico)'}
               </div>
@@ -914,7 +914,7 @@ export default function Questoes({ theme, s, data, quest, setQuest, registrar, a
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', border: 'none', background: 'transparent', textAlign: 'left', borderRadius: 6 }}
                       >
                         <Icon name={icone[0]} color={icone[1]} size={18} />
-                        <span style={{ width: 24, flex: 'none', fontSize: 12.5, fontWeight: 600, color: '#7a766f', fontVariantNumeric: 'tabular-nums' }}>{pos + 1}</span>
+                        <span style={{ width: 24, flex: 'none', fontSize: 12.5, fontWeight: 600, color: '#6a665f', fontVariantNumeric: 'tabular-nums' }}>{pos + 1}</span>
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#4f4b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {q.disciplina && <b style={{ color: '#1c1b19', fontWeight: 600 }}>{q.disciplina} · </b>}{q.enunciado}
                         </span>

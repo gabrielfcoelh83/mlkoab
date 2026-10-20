@@ -297,6 +297,9 @@ function paraFormatoLocal(linha) {
     motivo_nota: linha.motivo_nota ?? null,
     // De onde veio (migration 007); nula nas tentativas anteriores a ela.
     origem: linha.origem ?? null,
+    // Simulado registrado no servidor (migrations 006 e 009) a que a resposta
+    // pertence; é o que monta a apostila de cada simulado.
+    simulado_id: linha.simulado_id ?? null,
   };
 }
 
@@ -444,7 +447,7 @@ export async function listarQuestoes(filtros = {}) {
   return acervo;
 }
 
-export async function registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem }) {
+export async function registrarTentativa({ questaoId, correta, alternativa, tempoSeg, origem, simuladoId }) {
   const linha = await req('/api/tentativas', {
     method: 'POST',
     body: {
@@ -457,6 +460,9 @@ export async function registrarTentativa({ questaoId, correta, alternativa, temp
       // 'quiz', 'simulado' ou 'revisao' (migration 007). Servidor anterior a
       // ela ignora o campo, então mandar sempre é seguro.
       origem: origem || null,
+      // Só quando o simulado foi aberto no servidor. Sem ele, a resposta
+      // segue como antes (simulado só no navegador).
+      ...(Number.isInteger(simuladoId) ? { simulado_id: simuladoId } : {}),
     },
   });
 
@@ -514,6 +520,34 @@ export async function salvarMarcador(questaoId, { tipo, nota } = {}) {
 export async function apagarMarcador(questaoId) {
   // 204 sem corpo: não há o que traduzir, e o DELETE é idempotente.
   await req(`/api/marcadores/${encodeURIComponent(questaoId)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
+// Simulados registrados no servidor
+// ---------------------------------------------------------------------------
+//
+// Prova real (`{exame, tipo}`) ou simulado geral (`{modalidade: 'geral',
+// questoes}`, migration 009). Um aberto por pessoa: no 409, a tela acha o
+// aberto em `listarSimulados()` (status 'aberto') para oferecer "retomar".
+
+export async function abrirSimulado(corpo) {
+  return req('/api/simulados', { method: 'POST', body: corpo });
+}
+
+export async function listarSimulados() {
+  const dados = await req('/api/simulados');
+  return Array.isArray(dados) ? dados : [];
+}
+
+export async function finalizarSimulado(id, { acertos, anuladas = 0 }) {
+  return req(`/api/simulados/${encodeURIComponent(id)}/finalizar`, {
+    method: 'POST',
+    body: { acertos, anuladas },
+  });
+}
+
+export async function abandonarSimulado(id) {
+  return req(`/api/simulados/${encodeURIComponent(id)}/abandonar`, { method: 'POST' });
 }
 
 // ---------------------------------------------------------------------------

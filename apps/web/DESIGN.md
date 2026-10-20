@@ -35,7 +35,7 @@ Sete paletas em `THEMES` ([src/lib/theme.js](src/lib/theme.js)): `bordo` (padrã
 | Fundo da página | `theme.bg` |
 | Superfícies | `#fff` + `SOMBRA` (via `s.card`) |
 | Texto principal | `#1c1b19` (`TINTA`) |
-| Texto secundário | `#7a766f` (`MUDO`) |
+| Texto secundário | `#6a665f` (`MUDO`) |
 | Texto de corpo em cards | `#4f4b45` |
 | Ação principal | `theme.primary` (hover/borda: `theme.primaryDark`) |
 | Seleção / item ativo do menu | `theme.primarySoft` |
@@ -134,7 +134,7 @@ Curvas `--ease-out` e `--ease-in-out` em [src/index.css](src/index.css); `ease-i
 
 ## Open questions
 
-- Os neutros (`#1c1b19`, `#7a766f`, `#4f4b45`, `#eeebe5`) estão escritos à mão em quase todas as telas; o ideal seria exportá-los de [src/lib/theme.js](src/lib/theme.js) como tokens.
+- Os neutros (`#1c1b19`, `#6a665f`, `#4f4b45`, `#eeebe5`) estão escritos à mão em quase todas as telas; o ideal seria exportá-los de [src/lib/theme.js](src/lib/theme.js) como tokens.
 - `iw()` está duplicado em [Dashboard.jsx](src/screens/Dashboard.jsx) e [Revisoes.jsx](src/screens/Revisoes.jsx), e o `iconWrap` dos cards de número ficou sem uso visual.
 - A primeira cor de `corDaDisciplina` coincide com a paleta Bordô; numa matéria com essa cor, ela pode ser confundida com a marca.
 - Não há modo escuro, e a 1ª fase não tem layout de celular.

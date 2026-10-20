@@ -974,7 +974,7 @@ export default function App() {
   if (perfil.estado === 'carregando') {
     return (
       <div style={{ ...s.app, alignItems: 'center', justifyContent: 'center' }}>
-        <div role="status" data-testid="carregando-perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#7a766f', fontSize: 13 }}>
+        <div role="status" data-testid="carregando-perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#6a665f', fontSize: 13 }}>
           <div className="esqueleto" style={{ ...s.logoMark, width: 40, height: 40, borderRadius: 12 }} aria-hidden="true">
             <Icon name="scale" color="#fff" size={20} />
           </div>
@@ -1120,7 +1120,7 @@ export default function App() {
               <span>Questões discursivas</span>
             </div>
           </nav>
-          <div style={{ fontSize: 12, color: '#7a766f', lineHeight: 1.5, padding: '8px 12px 0' }}>
+          <div style={{ fontSize: 12, color: '#6a665f', lineHeight: 1.5, padding: '8px 12px 0' }}>
             As 4 questões de cada exame, com o padrão de resposta oficial da FGV. A peça não entra.
           </div>
           {linhaDoPerfil}
@@ -1325,10 +1325,10 @@ export default function App() {
           style={{
             marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8,
             justifyContent: recolhida ? 'center' : 'flex-start', border: 'none', background: 'transparent',
-            color: '#7a766f', fontSize: 12.5, fontWeight: 500, whiteSpace: 'nowrap',
+            color: '#6a665f', fontSize: 12.5, fontWeight: 500, whiteSpace: 'nowrap',
           }}
         >
-          <Icon name={recolhida ? 'panel-left-open' : 'panel-left-close'} color="#7a766f" size={18} />
+          <Icon name={recolhida ? 'panel-left-open' : 'panel-left-close'} color="#6a665f" size={18} />
           {!recolhida && 'Recolher menu'}
         </button>
 
@@ -1358,7 +1358,7 @@ export default function App() {
                 <div>
                   <div style={{ fontSize: 11, color: theme.primary, fontWeight: 600 }}>Faltam</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#1c1b19' }}>{diasProva} dias</div>
-                  <div style={{ fontSize: 10.5, color: '#7a766f' }}>para a prova da OAB</div>
+                  <div style={{ fontSize: 10.5, color: '#6a665f' }}>para a prova da OAB</div>
                 </div>
               </div>
             ) : (
@@ -1371,7 +1371,7 @@ export default function App() {
                 <span style={{ display: 'block' }}>
                   <span style={{ display: 'block', fontSize: 11, color: theme.primary, fontWeight: 600 }}>Sua prova</span>
                   <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: '#1c1b19' }}>Definir data</span>
-                  <span style={{ display: 'block', fontSize: 10.5, color: '#7a766f' }}>para contar os dias</span>
+                  <span style={{ display: 'block', fontSize: 10.5, color: '#6a665f' }}>para contar os dias</span>
                 </span>
               </button>
             )}
@@ -1410,14 +1410,14 @@ export default function App() {
                       type="button"
                       aria-label="Fechar avisos"
                       onClick={() => setNotifOpen(false)}
-                      style={{ color: '#7a766f', fontWeight: 700, background: 'none', border: 'none', padding: '0 4px', fontSize: 'inherit' }}
+                      style={{ color: '#6a665f', fontWeight: 700, background: 'none', border: 'none', padding: '0 4px', fontSize: 'inherit' }}
                     >
                       ×
                     </button>
                   </div>
 
                   {notificacoes.length === 0 ? (
-                    <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 10, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 10, lineHeight: 1.5 }}>
                       Nada pendente por aqui. Meta batida e nenhuma questão errada esperando revisão.
                     </div>
                   ) : (
@@ -1429,7 +1429,7 @@ export default function App() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1c1b19', lineHeight: 1.35 }}>{n.titulo}</div>
-                            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 2 }}>{n.texto}</div>
+                            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 2 }}>{n.texto}</div>
                             {n.acao && (
                               <button
                                 type="button"

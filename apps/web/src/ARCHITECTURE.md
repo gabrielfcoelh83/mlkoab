@@ -469,7 +469,7 @@ Não há tour nem checklist de primeiros passos.
    1 h, 2 h, 3 h ou mais). A meta sugerida é `minutos ÷ 3` (~3 min por
    questão objetiva, a conta aparece na tela), editável, e vira a `meta`.
 4. **Pontos fracos** — matérias do acervo carregado; sem acervo, as 18 da 1ª
-   fase de `ICONE_POR_DISCIPLINA`. "Ainda não sei" é resposta.
+   fase de `MATERIAS` (areas.js). "Ainda não sei" é resposta.
 
 **Onde fica.** Em `profile_data`, no servidor: `meta` e `dataProva` são as de
 sempre (sem cópia), e `ficha = { versao: 1, concluidaEm, fase, jaFez,

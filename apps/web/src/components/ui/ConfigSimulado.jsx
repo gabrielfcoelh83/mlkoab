@@ -36,7 +36,7 @@ export default function ConfigSimulado({ theme, s, onConfirm, disciplinas = [], 
         <Icon name="graduation-cap" color="#fff" size={22} />
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, color: '#1c1b19' }}>Vamos começar!</div>
-      <div style={{ fontSize: 14, color: '#7a766f', marginTop: 8 }}>
+      <div style={{ fontSize: 14, color: '#6a665f', marginTop: 8 }}>
         Você selecionou <b style={{ color: '#1c1b19' }}>{efetiva} {efetiva === 1 ? 'questão' : 'questões'}</b>. Gerencie seu tempo e boa sorte!
       </div>
 
@@ -71,7 +71,7 @@ export default function ConfigSimulado({ theme, s, onConfirm, disciplinas = [], 
           <div>
             <label htmlFor="simulado-disciplina" style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#1c1b19' }}>Disciplina</label>
             {opcoes.length === 0 ? (
-              <div style={{ fontSize: 12.5, color: '#7a766f', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12.5, color: '#6a665f', lineHeight: 1.5 }}>
                 As questões do acervo ainda não foram separadas por matéria. O simulado geral já usa todas.
               </div>
             ) : (
@@ -110,7 +110,7 @@ export default function ConfigSimulado({ theme, s, onConfirm, disciplinas = [], 
           </div>
         )}
 
-        <div style={{ fontSize: 12.5, color: '#7a766f', textAlign: 'center' }}>
+        <div style={{ fontSize: 12.5, color: '#6a665f', textAlign: 'center' }}>
           Tempo de prova: ~{tempoDeProvaMinutos(efetiva)} minutos · sem feedback durante o simulado, como na prova real
         </div>
 

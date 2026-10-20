@@ -37,7 +37,7 @@ export default function MotivoDoErro({ theme, s, questaoId, tentativa, anotarMot
   if (!aberto) {
     return temAnotacao ? (
       <div data-testid={`motivo-${questaoId}`} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
-        <span style={{ color: '#7a766f' }}>Por que errei:</span>
+        <span style={{ color: '#6a665f' }}>Por que errei:</span>
         {tentativa.motivo && <span style={s.pill('#F6E4E1', '#8F2F29')}>{rotuloDoMotivo(tentativa.motivo)}</span>}
         {tentativa.motivo_nota && <span style={{ color: '#4f4b45', fontStyle: 'italic' }}>{tentativa.motivo_nota}</span>}
         <button data-testid={`motivo-editar-${questaoId}`} onClick={abrir} style={{ background: 'none', border: 'none', color: theme.primaryDark, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
@@ -46,7 +46,7 @@ export default function MotivoDoErro({ theme, s, questaoId, tentativa, anotarMot
       </div>
     ) : (
       <button data-testid={`motivo-abrir-${questaoId}`} onClick={abrir} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: theme.primaryDark, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-        + Por que errei? <span style={{ fontWeight: 400, color: '#7a766f' }}>(opcional)</span>
+        + Por que errei? <span style={{ fontWeight: 400, color: '#6a665f' }}>(opcional)</span>
       </button>
     );
   }
@@ -77,7 +77,7 @@ export default function MotivoDoErro({ theme, s, questaoId, tentativa, anotarMot
           );
         })}
       </div>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#7a766f' }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#6a665f' }}>
         Anotação (opcional)
         <textarea
           data-testid={`motivo-nota-${questaoId}`}

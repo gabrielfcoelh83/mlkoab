@@ -187,6 +187,80 @@ export function ritmoDaSemana({ tentativas = {}, meta = 20, diasDeEstudo = null,
   };
 }
 
+// Semanas olhadas para o recorde: um trimestre, o horizonte em que a meta
+// atual ainda é uma régua justa (não há histórico de meta por dia).
+export const SEMANAS_DO_RECORDE = 12;
+
+// Dias de estudo cumpridos (respondidas ≥ meta) na semana de domingo a
+// sábado que contém `inicio`.
+function cumpridosNaSemana(porDia, inicio, { meta, diasDeEstudo, ate = null }) {
+  let cumpridos = 0;
+  for (let i = 0; i < 7; i++) {
+    const data = new Date(inicio);
+    data.setDate(data.getDate() + i);
+    if (ate && dateKey(data) > ate) break;
+    if (!ehDiaDeEstudo(data, diasDeEstudo)) continue;
+    if ((porDia[dateKey(data)] || 0) >= meta) cumpridos += 1;
+  }
+  return cumpridos;
+}
+
+/**
+ * A semana CORRENTE em dias cumpridos, no lugar da porcentagem.
+ *
+ * "37% da semana" não dizia o que fazer; "2 de 3 dias de estudo cumpridos"
+ * diz, e conversa com a sequência do Dashboard, que também conta dias. Um
+ * dia de estudo está cumprido quando as respondidas chegam à meta diária.
+ * Folga não entra na conta, nem quando a pessoa estuda nela.
+ *
+ * Limite conhecido: compara com a meta ATUAL, também nas semanas passadas e no
+ * recorde. Quem subiu a meta vê o passado medido pela régua nova.
+ */
+export function semanaEmDias({ tentativas = {}, meta = 20, diasDeEstudo = null, hoje = new Date() } = {}) {
+  const porDia = respondidasPorDia(tentativas);
+  const hojeChave = dateKey(hoje);
+  const domingo = new Date(hoje);
+  domingo.setDate(domingo.getDate() - hoje.getDay());
+
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const data = new Date(domingo);
+    data.setDate(data.getDate() + i);
+    const chave = dateKey(data);
+    const estudo = ehDiaDeEstudo(data, diasDeEstudo);
+    const respondidas = porDia[chave] || 0;
+    return {
+      chave,
+      dow: DOW[data.getDay()],
+      dia: data.getDate(),
+      hoje: chave === hojeChave,
+      futuro: chave > hojeChave,
+      estudo,
+      respondidas,
+      cumprido: estudo && meta > 0 && respondidas >= meta,
+    };
+  });
+
+  const ateHoje = dias.filter((d) => d.estudo && !d.futuro);
+  const anterior = new Date(domingo);
+  anterior.setDate(anterior.getDate() - 7);
+
+  let recorde = 0;
+  for (let s = 1; s <= SEMANAS_DO_RECORDE; s++) {
+    const inicio = new Date(domingo);
+    inicio.setDate(inicio.getDate() - 7 * s);
+    recorde = Math.max(recorde, cumpridosNaSemana(porDia, inicio, { meta, diasDeEstudo }));
+  }
+
+  return {
+    dias,
+    cumpridos: dias.filter((d) => d.cumprido).length,
+    diasAteHoje: ateHoje.length,
+    diasNaSemana: dias.filter((d) => d.estudo).length,
+    semanaPassada: cumpridosNaSemana(porDia, anterior, { meta, diasDeEstudo }),
+    recorde,
+  };
+}
+
 /**
  * O mês (`ano`, `mes` de 0 a 11) somado de `deslocamento` meses — o que as
  * setas do calendário fazem. Pelo `Date` para virar o ano sozinho.

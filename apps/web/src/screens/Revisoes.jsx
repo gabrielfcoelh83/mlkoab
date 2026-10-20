@@ -175,9 +175,9 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
             {stats.map((st) => (
               <div key={st.label} style={s.card}>
-                <div style={{ fontSize: 12.5, color: '#7a766f' }}>{st.label}</div>
+                <div style={{ fontSize: 12.5, color: '#6a665f' }}>{st.label}</div>
                 <div style={{ ...s.statNum, fontSize: 30, marginTop: 6 }}>{st.value}</div>
-                <div data-testid={`stat-contexto-${st.label}`} style={{ fontSize: 11.5, color: '#7a766f', marginTop: 4 }}>{st.contexto}</div>
+                <div data-testid={`stat-contexto-${st.label}`} style={{ fontSize: 11.5, color: '#6a665f', marginTop: 4 }}>{st.contexto}</div>
               </div>
             ))}
           </div>
@@ -313,11 +313,11 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
           </div>
 
           {itens.length === 0 ? (
-            <div style={{ ...s.card, textAlign: 'center', padding: '40px 20px', color: '#7a766f', fontSize: 13.5, lineHeight: 1.6 }}>
+            <div style={{ ...s.card, textAlign: 'center', padding: '40px 20px', color: '#6a665f', fontSize: 13.5, lineHeight: 1.6 }}>
               {vazioDaAba[aba.key]}
             </div>
           ) : filtrados.length === 0 ? (
-            <div data-testid="revisao-sem-filtro" style={{ ...s.card, textAlign: 'center', padding: '40px 20px', color: '#7a766f', fontSize: 13.5, lineHeight: 1.6 }}>
+            <div data-testid="revisao-sem-filtro" style={{ ...s.card, textAlign: 'center', padding: '40px 20px', color: '#6a665f', fontSize: 13.5, lineHeight: 1.6 }}>
               Nenhuma questão com esse filtro.
             </div>
           ) : (
@@ -326,7 +326,7 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
                 <div key={grupo.disciplina} data-testid="grupo-revisao" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                     <h3 data-testid="grupo-disciplina" style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#1c1b19' }}>{grupo.disciplina}</h3>
-                    <span data-testid="grupo-meta" style={{ fontSize: 12, color: '#7a766f' }}>{metaDoGrupo(aba.key, grupo.itens)}</span>
+                    <span data-testid="grupo-meta" style={{ fontSize: 12, color: '#6a665f' }}>{metaDoGrupo(aba.key, grupo.itens)}</span>
                     <button
                       data-testid={`refazer-grupo-${gi}`}
                       style={{ ...s.btnOutline, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
@@ -348,7 +348,7 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
                         <div className="revisao-cabecalho" style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: '#1c1b19' }}>{tituloDaQuestao(q)}</div>
-                            <div data-testid={`revisao-meta-${q.id}`} style={{ fontSize: 11.5, color: '#7a766f', marginTop: 3 }}>{metaDoCartao(item, aba.key)}</div>
+                            <div data-testid={`revisao-meta-${q.id}`} style={{ fontSize: 11.5, color: '#6a665f', marginTop: 3 }}>{metaDoCartao(item, aba.key)}</div>
                             <div
                               data-testid={`revisao-enunciado-${q.id}`}
                               style={{
@@ -440,7 +440,7 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={dot('#cfcac2')}></span>Em aberto <b style={{ marginLeft: 'auto' }}>{resumo.emAberto}</b></div>
               </div>
             </div>
-            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 12, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 12, lineHeight: 1.5 }}>
               Conta a ÚLTIMA tentativa de cada uma das {resumo.acervo} questões do acervo — quem errou e depois acertou já saiu da lista de revisão.
             </div>
           </div>
@@ -453,14 +453,14 @@ export default function Revisoes({ theme, s, rev, setRev, revisao, disciplinas, 
                   <div key={d.nome}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
                       <span style={{ color: '#1c1b19', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{d.nome}</span>
-                      <span style={{ color: '#7a766f' }}>{d.pct}%</span>
+                      <span style={{ color: '#6a665f' }}>{d.pct}%</span>
                     </div>
                     <div style={{ ...s.progressTrack, marginTop: 5 }}><div style={{ width: d.pct + '%', height: '100%', background: '#B4413A', borderRadius: 5 }} /></div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 12, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 12, lineHeight: 1.5 }}>
                 Nenhuma disciplina tem resposta registrada ainda.
               </div>
             )}

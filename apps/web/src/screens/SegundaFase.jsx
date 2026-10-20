@@ -18,7 +18,7 @@ const COR_TEXTO = '#1c1b19';
 
 // O servidor recusa resposta maior que isto por item.
 const MAX_CARACTERES = 6000;
-const COR_SUAVE = '#7a766f';
+const COR_SUAVE = '#6a665f';
 
 const AVISO_CORRECAO = 'Esta conferência não é nota: ela só verifica se você citou os fundamentos do padrão de resposta. '
   + 'A banca também avalia a fundamentação; citar o artigo sozinho não pontua.';

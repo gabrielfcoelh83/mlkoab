@@ -10,7 +10,7 @@ import { evolucaoGeral, tempoPorDisciplina, formatarDuracao } from '../lib/metri
 const SEMANAS = { '6': 6, '12': 12 };
 
 function Vazio({ children }) {
-  return <div style={{ fontSize: 12.5, color: '#7a766f', padding: '14px 0', lineHeight: 1.5 }}>{children}</div>;
+  return <div style={{ fontSize: 12.5, color: '#6a665f', padding: '14px 0', lineHeight: 1.5 }}>{children}</div>;
 }
 
 // "Direito Processual Civil" não cabe embaixo de uma barra de 40px.
@@ -82,7 +82,7 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
                   </div>
                   <div style={{ ...s.progressTrack, marginTop: 5 }}><div style={{ width: d.pct + '%', height: '100%', background: '#B4413A', borderRadius: 5 }} /></div>
                 </div>
-                <span style={{ fontSize: 11.5, color: '#7a766f', width: 90, textAlign: 'right' }}>
+                <span style={{ fontSize: 11.5, color: '#6a665f', width: 90, textAlign: 'right' }}>
                   {d.acertos}/{d.tentativas} respostas
                 </span>
               </div>
@@ -110,7 +110,7 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
               <button
                 key={p}
                 onClick={() => setPerf({ period: p })}
-                style={{ background: perf.period === p ? theme.primarySoft : 'transparent', color: perf.period === p ? theme.primaryDark : '#7a766f', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600 }}
+                style={{ background: perf.period === p ? theme.primarySoft : 'transparent', color: perf.period === p ? theme.primaryDark : '#6a665f', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600 }}
               >
                 {p} semanas
               </button>
@@ -127,7 +127,7 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
               />
             </div>
             {/* Recuos iguais às margens do gráfico, para os rótulos caírem sob o primeiro e o último ponto. */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#7a766f', marginTop: 6, padding: '0 40px 0 34px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6a665f', marginTop: 6, padding: '0 40px 0 34px' }}>
               <span style={{ transform: 'translateX(-50%)' }}>{evolucao[0].rotulo}</span>
               <span style={{ transform: 'translateX(50%)' }}>{evolucao[evolucao.length - 1].rotulo}</span>
             </div>
@@ -150,7 +150,7 @@ export default function Desempenho({ theme, s, perf, setPerf, usuarioTentativas,
                 <div key={d.nome}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 5 }}>
                     <span style={{ color: '#1c1b19' }}>{d.nome}</span>
-                    <span style={{ color: '#7a766f' }}>{d.acertos} acertos · {d.tentativas - d.acertos} erros</span>
+                    <span style={{ color: '#6a665f' }}>{d.acertos} acertos · {d.tentativas - d.acertos} erros</span>
                   </div>
                   <div style={{ display: 'flex', height: 9, borderRadius: 5, overflow: 'hidden', background: '#eeebe5' }}>
                     <div style={{ width: d.pct + '%', background: '#4A7A4A' }} />

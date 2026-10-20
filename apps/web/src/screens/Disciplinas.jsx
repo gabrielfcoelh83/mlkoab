@@ -1,6 +1,6 @@
 import { Icon } from '../lib/icons';
 import { temasDaDisciplina } from '../lib/disciplinas';
-import { ICONE_POR_DISCIPLINA } from '../lib/navegacao';
+import { iconeDaMateria, corDaMateria } from '../lib/areas';
 
 // A lista era fixa: oito matérias com "35h 20m estudadas" e "85% de
 // aproveitamento" escritos no código. Abrir uma delas mostrava cinco tópicos
@@ -32,7 +32,7 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
   if (!aberta) {
     if (lista.length === 0) {
       return (
-        <div style={{ ...s.card, textAlign: 'center', padding: '48px 24px', color: '#7a766f', fontSize: 13.5, lineHeight: 1.6 }}>
+        <div style={{ ...s.card, textAlign: 'center', padding: '48px 24px', color: '#6a665f', fontSize: 13.5, lineHeight: 1.6 }}>
           O acervo ainda não tem questões carregadas.
           <br />As disciplinas aparecem aqui conforme as provas entram.
         </div>
@@ -47,7 +47,7 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
             <div key={d.nome} style={{ ...s.card, display: 'flex', flexDirection: 'column', gap: 12, padding: 22 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: `${d.cor}1e`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={ICONE_POR_DISCIPLINA[d.nome] || 'library'} color={d.cor} size={26} />
+                  <Icon name={iconeDaMateria(d.nome)} color={d.cor} size={26} />
                 </div>
                 <span style={s.pill(st.bg, st.color)}>{st.label}</span>
               </div>
@@ -68,13 +68,13 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
                     Ver temas ›
                   </button>
                 </div>
-                <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 3 }}>
+                <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 3 }}>
                   {d.total} {d.total === 1 ? 'questão' : 'questões'} no acervo · {d.respondidas} já respondidas
                 </div>
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#7a766f', marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6a665f', marginBottom: 6 }}>
                   <span>{d.pct != null ? 'Acerto' : 'Cobertura'}</span>
                   <span style={{ fontWeight: 700, color: '#1c1b19' }}>
                     {d.pct != null ? `${d.pct}%` : `${d.cobertura}%`}
@@ -83,7 +83,7 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
                 <div style={s.progressTrack}>
                   <div style={{ width: `${d.pct != null ? d.pct : d.cobertura}%`, height: '100%', background: d.cor, borderRadius: 5 }} />
                 </div>
-                <div style={{ fontSize: 11, color: '#7a766f', marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: '#6a665f', marginTop: 6 }}>
                   {d.pct != null
                     ? `${d.acertos} acertos em ${d.tentativas} ${d.tentativas === 1 ? 'resposta' : 'respostas'}`
                     : 'sem respostas ainda'}
@@ -128,11 +128,11 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
         <div style={{ width: 56, height: 56, borderRadius: 10, background: `${aberta.cor}1e`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-          <Icon name={ICONE_POR_DISCIPLINA[aberta.nome] || 'library'} color={aberta.cor} size={28} />
+          <Icon name={iconeDaMateria(aberta.nome)} color={aberta.cor} size={28} />
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 19, fontWeight: 700, color: '#1c1b19' }}>{aberta.nome}</div>
-          <div style={{ fontSize: 13, color: '#7a766f' }}>
+          <div style={{ fontSize: 13, color: '#6a665f' }}>
             {aberta.total} questões · {aberta.respondidas} respondidas
             {aberta.pct != null ? ` · ${aberta.pct}% de acerto` : ''}
           </div>
@@ -174,7 +174,7 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
           <div key={t.nome} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 14px', background: '#faf9f6', borderRadius: 12, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1b19' }}>{t.nome}</div>
-              <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 2 }}>
+              <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 2 }}>
                 {t.total} {t.total === 1 ? 'questão' : 'questões'}
                 {t.tentativas > 0 ? ` · ${t.acertos}/${t.tentativas} respostas certas` : ' · sem respostas'}
               </div>
@@ -182,7 +182,7 @@ export default function Disciplinas({ theme, s, data, disc, setDisc, disciplinas
                 <div style={{ width: `${t.pct ?? 0}%`, height: '100%', background: aberta.cor, borderRadius: 5 }} />
               </div>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.pct == null ? '#7a766f' : '#1c1b19', width: 44, textAlign: 'right' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.pct == null ? '#6a665f' : '#1c1b19', width: 44, textAlign: 'right' }}>
               {t.pct == null ? '—' : `${t.pct}%`}
             </div>
             <button

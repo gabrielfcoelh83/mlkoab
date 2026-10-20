@@ -50,7 +50,7 @@
   text-overflow: ellipsis;
 }
 .chevron {
-  color: #7a766f;
+  color: #6a665f;
   transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .trigger[data-state="open"] .chevron {
@@ -147,7 +147,7 @@
 }
 .email {
   font-size: 12px;
-  color: #7a766f;
+  color: #6a665f;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -207,7 +207,7 @@
 .icon {
   display: inline-flex;
   flex: none;
-  color: #7a766f;
+  color: #6a665f;
 }
 .item[data-tone="danger"] .icon {
   color: #b4413a;
@@ -234,7 +234,7 @@
   padding: 1px 4px;
   border-radius: 4px;
   background: #f4f2ee;
-  color: #7a766f;
+  color: #6a665f;
   font-family: inherit;
   font-size: 11px;
   text-align: center;

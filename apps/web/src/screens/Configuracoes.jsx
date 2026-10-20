@@ -40,7 +40,7 @@ export default function Configuracoes({
     ancoraUsada?.();
   }, [ancora, ancoraUsada, perfil]);
 
-  const label = { display: 'block', fontSize: 12, color: '#7a766f', marginBottom: 5 };
+  const label = { display: 'block', fontSize: 12, color: '#6a665f', marginBottom: 5 };
   const input = { width: '100%', fontSize: 13.5, border: '1px solid rgba(0,0,0,.1)', borderRadius: 9, padding: '9px 12px', color: '#1c1b19', fontFamily: 'inherit' };
 
   const salvarNome = async () => {
@@ -89,11 +89,11 @@ export default function Configuracoes({
 
           <div>
             <label htmlFor="config-email" style={label}>E-mail</label>
-            <input id="config-email" style={{ ...input, background: '#faf9f6', color: '#7a766f' }} value={perfil?.email || ''} readOnly />
+            <input id="config-email" style={{ ...input, background: '#faf9f6', color: '#6a665f' }} value={perfil?.email || ''} readOnly />
             {/* Editar aqui mudaria só o cadastro do user-service; o login
                 continua sendo o e-mail guardado pelo auth-service. Um campo
                 editável prometeria uma troca de e-mail que não acontece. */}
-            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 6 }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 6 }}>
               É o e-mail com que você entra. Trocá-lo ainda não é possível por aqui.
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function Configuracoes({
                 atualizarConfig({ meta: Number.isFinite(n) && n > 0 ? Math.min(500, Math.round(n)) : 1 });
               }}
             />
-            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 6 }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 6 }}>
               É o denominador de “meta de hoje” no dashboard e no cronograma.
             </div>
           </div>
@@ -133,14 +133,14 @@ export default function Configuracoes({
               value={config.dataProva || ''}
               onChange={(e) => atualizarConfig({ dataProva: e.target.value || null })}
             />
-            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 6 }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 6 }}>
               {faltam != null
                 ? `A contagem no topo mostra ${faltam} ${faltam === 1 ? 'dia' : 'dias'}.`
                 : 'Sem data definida, o topo não conta os dias.'}
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 14, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 14, lineHeight: 1.5 }}>
           Meta e data ficam salvas na sua conta, então seguem você em qualquer aparelho.
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function Configuracoes({
 
       <div style={s.card}>
         <h2 style={s.sectionTitle}>Aparência</h2>
-        <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 4 }}>
+        <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 4 }}>
           Escolha a paleta de cores. Fica guardada neste navegador.
         </div>
         {/* Cada opção é uma miniatura do app na paleta: barra lateral, título,
@@ -201,7 +201,7 @@ export default function Configuracoes({
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#1c1b19' }}>{THEME_NAMES[key]}</span>
                   {active && <Icon name="circle-check" color={t.primary} size={16} />}
                 </div>
-                <div style={{ padding: '0 6px 4px', fontSize: 11.5, color: '#7a766f', lineHeight: 1.35 }}>{THEME_DESCRICOES[key]}</div>
+                <div style={{ padding: '0 6px 4px', fontSize: 11.5, color: '#6a665f', lineHeight: 1.35 }}>{THEME_DESCRICOES[key]}</div>
               </button>
             );
           })}
@@ -210,7 +210,7 @@ export default function Configuracoes({
 
       <div style={s.card}>
         <h2 style={s.sectionTitle}>Avisos</h2>
-        <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 8, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 8, lineHeight: 1.6 }}>
           O sino no topo mostra o que está pendente agora: meta do dia, questões
           erradas esperando revisão e a contagem para a prova. São calculados na
           hora, a partir do seu histórico.

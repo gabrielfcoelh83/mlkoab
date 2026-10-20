@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../lib/icons';
-import { ICONE_POR_DISCIPLINA } from '../lib/navegacao';
+import { iconeDaMateria, corDaMateria } from '../lib/areas';
 import { corrigirSimulado, respostasParaRegistrar, situacaoDaResposta, sortearQuestoes, tempoDeProvaMinutos } from '../lib/simulado';
 import ConfigSimulado from '../components/ui/ConfigSimulado';
 import Cronometro from '../components/ui/Cronometro';
@@ -204,7 +204,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#1c1b19' }}>Simulado Geral — OAB 1ª Fase</div>
-            <div style={{ fontSize: 13, color: '#7a766f', marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: '#6a665f', marginTop: 4, lineHeight: 1.5 }}>
               {textoHero}
             </div>
           </div>
@@ -224,7 +224,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           <div>
             <div style={{ margin: '12px 0 0', paddingBottom: 10, borderBottom: '1px solid #e6e2da', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
               <h2 style={{ ...s.pageTitle, fontSize: 21 }}>Treino por matéria</h2>
-              <div style={{ fontSize: 12.5, color: '#7a766f' }}>Simulado curto ou prática livre em uma disciplina</div>
+              <div style={{ fontSize: 12.5, color: '#6a665f' }}>Simulado curto ou prática livre em uma disciplina</div>
             </div>
 
             {/* As matérias aqui eram uma lista fixa de oito nomes; hoje vêm do
@@ -235,7 +235,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                 {[0, 1, 2].map((i) => <div key={i} className="esqueleto" style={{ height: 170, borderRadius: 10 }} />)}
               </div>
             ) : materias.length === 0 ? (
-              <div data-testid="treino-vazio" style={{ ...s.card, textAlign: 'center', padding: '32px 20px', color: '#7a766f', fontSize: 13.5, marginTop: 18, lineHeight: 1.6 }}>
+              <div data-testid="treino-vazio" style={{ ...s.card, textAlign: 'center', padding: '32px 20px', color: '#6a665f', fontSize: 13.5, marginTop: 18, lineHeight: 1.6 }}>
                 {semAcervo
                   ? 'Nenhuma disciplina no acervo ainda.'
                   : 'As questões do acervo ainda não foram separadas por matéria. Enquanto isso, o Simulado Geral usa todas elas.'}
@@ -248,7 +248,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                       <div style={{ fontSize: 15, fontWeight: 600, color: '#1c1b19', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: d.cor, flex: 'none' }} />{d.nome}
                       </div>
-                      <div style={{ fontSize: 12.5, color: '#7a766f', marginTop: 3 }}>
+                      <div style={{ fontSize: 12.5, color: '#6a665f', marginTop: 3 }}>
                         {d.total} {d.total === 1 ? 'questão' : 'questões'} no acervo
                         {d.pct != null ? ` · ${d.pct}% de acerto seu` : ''}
                       </div>
@@ -281,7 +281,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
         {hist.length > 0 && (
           <div style={s.card}>
             <h2 style={s.sectionTitle}><Icon name="chart-column" color={theme.primary} size={18} />Histórico de Simulados</h2>
-            <div style={{ fontSize: 11.5, color: '#7a766f', marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11.5, color: '#6a665f', marginTop: 6, lineHeight: 1.5 }}>
               As respostas de cada simulado entram no seu histórico no servidor
               e contam no desempenho por disciplina. Já a nota final da prova
               fica guardada neste navegador — ainda não existe rota de simulado
@@ -292,7 +292,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{r.nome}</div>
-                    <div style={{ fontSize: 12, color: '#7a766f', marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: '#6a665f', marginTop: 4 }}>
                       {r.acertos}/{r.quantidade} acertos • {r.tempo_total_minutos}min
                       {r.data_conclusao ? ` • ${new Date(r.data_conclusao).toLocaleDateString('pt-BR')}` : ''}
                     </div>
@@ -340,10 +340,10 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           <div style={{ fontSize: 18, fontWeight: 700, color: '#1c1b19' }}>
             {simulado.tipo === 'geral' ? 'Simulado Geral — OAB 1ª Fase' : `Simulado — ${simulado.disciplina}`}
           </div>
-          <div style={{ fontSize: 13, color: '#7a766f', marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: '#6a665f', marginTop: 4 }}>
             Você selecionou <b style={{ color: '#1c1b19' }}>{simulado.quantidade} {simulado.quantidade === 1 ? 'questão' : 'questões'}</b>. Gerencie seu tempo e boa sorte!
           </div>
-          <div style={{ fontSize: 12, color: '#7a766f', marginTop: 6 }}>
+          <div style={{ fontSize: 12, color: '#6a665f', marginTop: 6 }}>
             Sem correção durante a prova — o gabarito aparece quando você finalizar.
           </div>
         </div>
@@ -402,7 +402,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                         border: escolhida ? `5px solid ${theme.primary}` : '2px solid #d6d1c8',
                         background: '#fff', boxSizing: 'border-box',
                       }} />
-                      <b style={{ color: escolhida ? theme.primaryDark : '#7a766f', flex: 'none', opacity: riscada ? 0.5 : 1 }}>{LETRA(idx)})</b>
+                      <b style={{ color: escolhida ? theme.primaryDark : '#6a665f', flex: 'none', opacity: riscada ? 0.5 : 1 }}>{LETRA(idx)})</b>
                       <div
                         data-riscada={riscada ? 'sim' : 'nao'}
                         style={{ textDecoration: riscada ? 'line-through' : 'none', opacity: riscada ? 0.5 : 1 }}
@@ -478,7 +478,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           <div style={{ width: 76, height: 76, borderRadius: '50%', margin: '0 auto', background: faixa.fundo, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name={faixa.icone} color={faixa.cor} size={38} />
           </div>
-          <div style={{ fontSize: 14, color: '#7a766f', marginTop: 8 }}>Nota final</div>
+          <div style={{ fontSize: 14, color: '#6a665f', marginTop: 8 }}>Nota final</div>
           <div data-testid="nota-final" style={{ fontSize: 48, fontWeight: 700, color: theme.primary }}>{nota}%</div>
           <div style={{ fontSize: 13, marginTop: 4, color: '#4f4b45' }}>{resultado.acertos} acertos em {resultado.quantidade} questões</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 20, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -514,7 +514,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
           </div>
 
           {itens.length === 0 && (
-            <div style={{ fontSize: 13, color: '#7a766f', marginTop: 14 }}>Nenhuma questão errada ou em branco. Gabaritou!</div>
+            <div style={{ fontSize: 13, color: '#6a665f', marginTop: 14 }}>Nenhuma questão errada ou em branco. Gabaritou!</div>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
@@ -547,7 +547,7 @@ export default function Simulados({ theme, s, data, sim, setSim, setResultadosHi
                             color: '#1c1b19',
                           }}
                         >
-                          <b style={{ color: cor || '#7a766f', flex: 'none' }}>{LETRA(idx)})</b>
+                          <b style={{ color: cor || '#6a665f', flex: 'none' }}>{LETRA(idx)})</b>
                           <span style={{ flex: 1 }}>{alt}</span>
                           {eGabarito && <span style={{ fontSize: 11, fontWeight: 700, color: '#4A7A4A', flex: 'none' }}>Gabarito</span>}
                           {eMarcada && !eGabarito && <span style={{ fontSize: 11, fontWeight: 700, color: '#B4413A', flex: 'none' }}>Sua resposta</span>}

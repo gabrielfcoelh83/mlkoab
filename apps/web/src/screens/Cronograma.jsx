@@ -7,7 +7,7 @@ import {
 } from '../lib/agenda';
 import { DIAS_DA_SEMANA } from '../lib/ficha';
 import { diasAteProva } from '../lib/metrics';
-import { ICONE_POR_DISCIPLINA } from '../lib/navegacao';
+import { iconeDaMateria, corDaMateria } from '../lib/areas';
 import { HaloBadge } from '@/components/ui/halo-badge';
 import {
   iniciarConexaoGoogleCalendar,
@@ -408,7 +408,7 @@ export default function Cronograma({
                 ) : (
                   <>
                     <div style={{ width: 36, height: 36, borderRadius: 11, background: `${dia.cor || theme.primary}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-                      <Icon name={ICONE_POR_DISCIPLINA[dia.disciplina] || 'book-open'} color={dia.cor || theme.primary} size={18} />
+                      <Icon name={iconeDaMateria(dia.disciplina)} color={dia.cor || theme.primary} size={18} />
                     </div>
 
                     <div style={{ flex: 1, minWidth: 170 }}>

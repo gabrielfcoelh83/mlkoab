@@ -51,9 +51,16 @@ export function aplicarTemaNoDocumento(theme, raiz = document.documentElement) {
 export const FONTE_TEXTO = "'Geist', system-ui, sans-serif";
 export const FONTE_TITULO = "'Newsreader', Georgia, serif";
 
-const TINTA = '#1c1b19';
-const MUDO = '#7a766f';
-const LINHA = '#e6e2da';
+// Neutros exportados para os componentes .tsx não repetirem o hexadecimal.
+// MUDO era #7a766f, que dava 4,1:1 sobre o papel (abaixo de 4,5:1 do texto
+// comum); #6a665f dá 5,2:1 com o mesmo tom quente.
+export const TINTA = '#1c1b19';
+export const MUDO = '#6a665f';
+export const LINHA = '#e6e2da';
+export const TRILHO = '#eeebe5';
+// Acerto e erro, os mesmos do resto do app (CardDeQuestao, Revisões).
+export const VERDE = '#4A7A4A';
+export const VERMELHO = '#B4413A';
 
 // Anel de 1px + elevação curta + ambiente suave. Adapta a qualquer fundo de
 // paleta, ao contrário de uma borda de cor fixa.

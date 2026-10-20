@@ -28,11 +28,11 @@ const STATUS_META = {
   domina: { label: 'Domina', color: '#4A7A4A', bg: '#E4EEE1' },
   'em-desenvolvimento': { label: 'Em desenvolvimento', color: '#94661A', bg: '#F5EEDC' },
   necessita: { label: 'Precisa reforço', color: '#B4413A', bg: '#F6E4E1' },
-  novo: { label: 'Não iniciado', color: '#7a766f', bg: '#f1efea' },
+  novo: { label: 'Não iniciado', color: '#6a665f', bg: '#f1efea' },
 };
 
 function EmptyHint({ children }) {
-  return <div style={{ fontSize: 12.5, color: '#7a766f', padding: '10px 0', lineHeight: 1.5 }}>{children}</div>;
+  return <div style={{ fontSize: 12.5, color: '#6a665f', padding: '10px 0', lineHeight: 1.5 }}>{children}</div>;
 }
 
 export default function Dashboard({ theme, s, data, go, dash, setDash, config, usuarioTentativas, resultados_historico, disciplinas, praticarDisciplina, acervo, dificuldades }) {
@@ -90,7 +90,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {stats.map((st, i) => (
           <div key={i} style={s.card}>
-            <div style={{ fontSize: 12.5, color: '#7a766f' }}>{st.label}</div>
+            <div style={{ fontSize: 12.5, color: '#6a665f' }}>{st.label}</div>
             <div style={{ ...s.statNum, fontSize: 30, marginTop: 6 }}>{st.value}</div>
             <div style={s.statLabel}>{st.sub}</div>
           </div>
@@ -109,7 +109,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
               <span>Meta de hoje</span><span style={{ fontWeight: 700, color: '#1c1b19' }}>{meta.respondidas}/{meta.meta} questões</span>
             </div>
             <div style={s.progressTrack}><div style={{ width: `${meta.pct}%`, height: '100%', background: `linear-gradient(90deg, ${theme.gradA}, ${theme.gradB})`, borderRadius: 5, transition: 'width 320ms var(--ease-out)' }} /></div>
-            <div style={{ fontSize: 12, color: '#7a766f', marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: '#6a665f', marginTop: 8 }}>
               {meta.batida ? 'Meta de hoje batida.' : `Faltam ${meta.faltam} questões para bater a meta de hoje.`}
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
               por que ela: antes era sempre o mesmo cartão, e o botão levava
               para a tela de questões sem filtrar nada. */}
           <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #eeebe5' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#7a766f', textTransform: 'uppercase', letterSpacing: '.08em' }}>Próximo passo</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6a665f', textTransform: 'uppercase', letterSpacing: '.08em' }}>Próximo passo</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
               <div style={{ width: 40, height: 40, borderRadius: 8, background: `${proxima ? proxima.cor : theme.primary}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
                 <Icon name="book-open" color={proxima ? proxima.cor : theme.primary} size={18} />
@@ -127,7 +127,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
                 <div style={{ fontSize: 14.5, fontWeight: 700, color: '#1c1b19' }}>
                   {proxima ? proxima.nome : 'Praticar questões'}
                 </div>
-                <div style={{ fontSize: 12.5, color: '#7a766f' }}>
+                <div style={{ fontSize: 12.5, color: '#6a665f' }}>
                   {proxima
                     ? proxima.pontoFraco
                       ? 'Você marcou como ponto fraco na sua ficha'
@@ -164,15 +164,15 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
             <>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <div style={{ flex: 1, background: '#faf9f6', borderRadius: 10, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 11, color: '#7a766f' }}>Acertos</div>
+                  <div style={{ fontSize: 11, color: '#6a665f' }}>Acertos</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#4A7A4A' }}>{simResumo.acertos}</div>
                 </div>
                 <div style={{ flex: 1, background: '#faf9f6', borderRadius: 10, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 11, color: '#7a766f' }}>Erros</div>
+                  <div style={{ fontSize: 11, color: '#6a665f' }}>Erros</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#B4413A' }}>{simResumo.erros}</div>
                 </div>
                 <div style={{ flex: 1, background: '#faf9f6', borderRadius: 10, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 11, color: '#7a766f' }}>% Acertos</div>
+                  <div style={{ fontSize: 11, color: '#6a665f' }}>% Acertos</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: theme.primary }}>{simResumo.pct}%</div>
                 </div>
               </div>
@@ -201,17 +201,17 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
       {/* Evolução dos estudos — por disciplina */}
       <div style={s.card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={s.sectionTitle}>Evolução dos estudos <span style={{ fontSize: 12, fontWeight: 400, color: '#7a766f' }}>· por disciplina</span></h2>
+          <h2 style={s.sectionTitle}>Evolução dos estudos <span style={{ fontSize: 12, fontWeight: 400, color: '#6a665f' }}>· por disciplina</span></h2>
           <Link002 as="button" onClick={() => go('desempenho')} style={s.link}>Ver mais</Link002>
         </div>
         {evolucao.length ? (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${evolucao.length}, 1fr)`, gap: 16, marginTop: 16 }}>
             {evolucao.map((ev, i) => {
-              const deltaColor = ev.delta == null ? '#7a766f' : ev.delta >= 0 ? '#4A7A4A' : '#B4413A';
+              const deltaColor = ev.delta == null ? '#6a665f' : ev.delta >= 0 ? '#4A7A4A' : '#B4413A';
               const deltaTxt = ev.delta == null ? 'só uma semana' : `${ev.delta >= 0 ? '+' : ''}${ev.delta} pp no período`;
               return (
                 <div key={i}>
-                  <div style={{ fontSize: 12, color: '#7a766f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.disciplina}</div>
+                  <div style={{ fontSize: 12, color: '#6a665f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.disciplina}</div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: '#1c1b19', marginTop: 2 }}>{ev.taxaAtual != null ? `${ev.taxaAtual}%` : '—'}</div>
                   <div style={{ fontSize: 11.5, color: deltaColor, fontWeight: 600 }}>{deltaTxt}</div>
                   {ev.pontos.length >= 2 && (
@@ -245,7 +245,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
                 <div key={d.nome}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: '#1c1b19', fontWeight: 500 }}>{d.nome}</span>
-                    <span style={{ color: '#7a766f' }}>{d.tentativas} {d.tentativas === 1 ? 'resposta' : 'respostas'}</span>
+                    <span style={{ color: '#6a665f' }}>{d.tentativas} {d.tentativas === 1 ? 'resposta' : 'respostas'}</span>
                   </div>
                   <div style={{ ...s.progressTrack, marginTop: 6 }}><div style={{ width: `${Math.round((d.tentativas / maxTentativas) * 100)}%`, height: '100%', background: d.cor, borderRadius: 5 }} /></div>
                 </div>
@@ -293,7 +293,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table aria-labelledby="titulo-desempenho-completo" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ textAlign: 'left', color: '#7a766f', fontSize: 11.5 }}>
+                <tr style={{ textAlign: 'left', color: '#6a665f', fontSize: 11.5 }}>
                   <th scope="col" style={{ padding: '8px 10px', fontWeight: 600 }}>Disciplina</th>
                   <th scope="col" style={{ padding: '8px 10px', fontWeight: 600, textAlign: 'right' }}>No acervo</th>
                   <th scope="col" style={{ padding: '8px 10px', fontWeight: 600, textAlign: 'right' }}>Respondidas</th>
@@ -314,7 +314,7 @@ export default function Dashboard({ theme, s, data, go, dash, setDash, config, u
                       <td style={{ padding: '9px 10px', textAlign: 'right', color: '#4f4b45' }}>{d.total}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'right', color: '#4f4b45' }}>{d.respondidas}</td>
                       <td style={{ padding: '9px 10px', textAlign: 'right', color: '#4f4b45' }}>{d.acertos}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: d.pct == null ? '#7a766f' : d.pct >= 70 ? '#4A7A4A' : d.pct >= 50 ? '#94661A' : '#B4413A' }}>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: d.pct == null ? '#6a665f' : d.pct >= 70 ? '#4A7A4A' : d.pct >= 50 ? '#94661A' : '#B4413A' }}>
                         {d.pct == null ? '—' : `${d.pct}%`}
                       </td>
                       <td style={{ padding: '9px 10px' }}>
