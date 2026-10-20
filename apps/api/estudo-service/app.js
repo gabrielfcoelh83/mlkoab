@@ -387,6 +387,133 @@ app.patch('/tentativas/:id', verifyToken, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// Marcadores das questões
+// ═══════════════════════════════════════════════════════════════
+//
+// Um marcador por questão e usuário, substituído pelo PUT (não é histórico
+// como as tentativas). O dono é sempre `req.user.id`; `questao_id` é TEXT,
+// como em `tentativas`, porque a mesma questão pode ter id gerado por IA.
+
+const TIPOS_MARCADOR = ['chute', 'nao_sabia', 'refazer', 'duvida'];
+const NOTA_MARCADOR_MAX = 280;
+
+// As mesmas colunas nas três respostas com corpo: o recurso é um só.
+const COLUNAS_MARCADOR =
+  'questao_id, tipo, nota, criado_em, atualizado_em';
+
+// ───────────────────────────────────────────────────────────────
+// GET /marcadores?tipo= — lista os do próprio usuário
+// ───────────────────────────────────────────────────────────────
+app.get('/marcadores', verifyToken, async (req, res) => {
+  let tipo = null;
+  if (req.query.tipo !== undefined && req.query.tipo !== '') {
+    // Um filtro inválido não pode ser ignorado: devolveria todos os
+    // marcadores como se o cliente tivesse pedido isso.
+    if (typeof req.query.tipo !== 'string' ||
+        !TIPOS_MARCADOR.includes(req.query.tipo.trim())) {
+      return res.status(400).json({
+        error: `tipo deve ser um de: ${TIPOS_MARCADOR.join(', ')}`,
+      });
+    }
+    tipo = req.query.tipo.trim();
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${COLUNAS_MARCADOR}
+         FROM marcadores
+        WHERE user_id = $1
+          AND ($2::text IS NULL OR tipo = $2)
+        ORDER BY atualizado_em DESC, questao_id`,
+      [req.user.id, tipo]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Erro ao listar marcadores:', error);
+    res.status(500).json({ error: 'Erro ao listar marcadores' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// PUT /marcadores/:questaoId — cria ou substitui
+// ───────────────────────────────────────────────────────────────
+app.put('/marcadores/:questaoId', verifyToken, async (req, res) => {
+  const questaoId = req.params.questaoId;
+  if (typeof questaoId !== 'string' || questaoId.trim() === '') {
+    return res.status(400).json({ error: 'questao_id é obrigatório' });
+  }
+
+  const corpo = req.body || {};
+  // O tipo é validado aqui e não só pelo CHECK: a mensagem do banco não diz
+  // nada ao cliente, e um 500 por valor fora da lista seria erro de servidor
+  // num pedido malformado.
+  const tipo = typeof corpo.tipo === 'string' ? corpo.tipo.trim() : null;
+  if (!TIPOS_MARCADOR.includes(tipo)) {
+    return res.status(400).json({
+      error: `tipo deve ser um de: ${TIPOS_MARCADOR.join(', ')}`,
+    });
+  }
+
+  // `nota` ausente, null ou só espaços vira null. Texto de outro tipo é
+  // recusado para não gravar "[object Object]" no lugar de uma nota.
+  let nota = null;
+  if (corpo.nota !== undefined && corpo.nota !== null) {
+    if (typeof corpo.nota !== 'string') {
+      return res.status(400).json({
+        error: `nota deve ser um texto de até ${NOTA_MARCADOR_MAX} caracteres ou null`,
+      });
+    }
+    const texto = corpo.nota.trim();
+    if (texto.length > NOTA_MARCADOR_MAX) {
+      return res.status(400).json({
+        error: `nota deve ter no máximo ${NOTA_MARCADOR_MAX} caracteres`,
+      });
+    }
+    nota = texto === '' ? null : texto;
+  }
+
+  try {
+    // O UPSERT resolve a corrida de dois cliques ao mesmo tempo: um INSERT
+    // seguido de UPDATE deixaria a janela em que o segundo pedido falha com
+    // violação de PK. `criado_em` fica intacto; só `atualizado_em` avança.
+    const { rows } = await pool.query(
+      `INSERT INTO marcadores (user_id, questao_id, tipo, nota)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, questao_id)
+       DO UPDATE SET tipo = EXCLUDED.tipo,
+                     nota = EXCLUDED.nota,
+                     atualizado_em = NOW()
+       RETURNING ${COLUNAS_MARCADOR}`,
+      [req.user.id, questaoId, tipo, nota]
+    );
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Erro ao salvar marcador:', error);
+    res.status(500).json({ error: 'Erro ao salvar marcador' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────
+// DELETE /marcadores/:questaoId — idempotente
+// ───────────────────────────────────────────────────────────────
+//
+// 204 mesmo quando não existia: apagar duas vezes (ou apagar o marcador de
+// outra pessoa) não é erro do cliente, e o resultado é o mesmo — o marcador
+// não está lá. O filtro por `user_id` garante que a linha alheia fica.
+app.delete('/marcadores/:questaoId', verifyToken, async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM marcadores WHERE user_id = $1 AND questao_id = $2',
+      [req.user.id, req.params.questaoId]
+    );
+    res.status(204).end();
+  } catch (error) {
+    console.error('Erro ao apagar marcador:', error);
+    res.status(500).json({ error: 'Erro ao apagar marcador' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
 // Respostas às discursivas da 2ª fase
 // ═══════════════════════════════════════════════════════════════
 //

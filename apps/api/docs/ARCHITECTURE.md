@@ -15,7 +15,7 @@ Plataforma de microserviços para educação jurídica (preparação OAB/Magistr
 | **API Gateway** | 3000 | - | Roteamento único (Express) |
 | **Auth Service** | 3001 | `auth_db` | Registro, login, JWT |
 | **User Service** | 3002 | `user_db` | Perfis de usuário |
-| **Estudo Service** | 3004 | `estudo_db` | Tentativas de questões (com motivo do erro e origem), simulados de prova real e respostas às discursivas |
+| **Estudo Service** | 3004 | `estudo_db` | Tentativas de questões (com motivo do erro e origem), simulados de prova real, respostas às discursivas e marcadores das questões |
 | **Questões Service** | 3005 | `questoes_db` | Questões do Exame de Ordem (objetivas e discursivas da 2ª fase) |
 
 ---
@@ -64,7 +64,7 @@ Cada serviço possui seu próprio banco de dados PostgreSQL:
 
 - `auth_db` - usuários, tokens
 - `user_db` - perfis, preferências
-- `estudo_db` - tentativas de questões (`tentativas`), simulados de prova real (`simulados`), respostas às discursivas (`respostas_discursivas`)
+- `estudo_db` - tentativas de questões (`tentativas`), simulados de prova real (`simulados`), respostas às discursivas (`respostas_discursivas`), marcadores por questão (`marcadores`)
 - `questoes_db` - objetivas (`questoes`), discursivas da 2ª fase (`questoes_discursivas`)
 
 **Benefício:** Escalabilidade independente, sem acoplamento de dados
@@ -341,6 +341,29 @@ resposta à prova (FK, mesmo banco).
 | `POST /api/simulados/:id/finalizar` | estudo | corpo `{acertos, anuladas}` → 200; 409 se já encerrado; 404 se não é seu |
 | `POST /api/simulados/:id/abandonar` | estudo | encerra sem nota; as tentativas ficam |
 | `POST /api/tentativas` | estudo | aceita `simulado_id` e `origem` opcionais; 409 se o simulado já encerrou, 404 se não é seu |
+
+---
+
+## Marcadores das questões
+
+**Migration 008.** `marcadores` guarda o estado atual de cada questão para
+cada pessoa — um marcador por par (`user_id`, `questao_id`), e não um
+histórico como `tentativas`. `user_id` vem sempre do JWT. `questao_id` é
+TEXT, do mesmo tipo de `tentativas.questao_id` (aceita id gerado por IA).
+
+- `tipo` é fechado, com CHECK: `chute`, `nao_sabia`, `refazer` ou `duvida`.
+- `nota` é opcional (até 280 caracteres, também com CHECK). Ausente, nula ou
+  só espaços vira `NULL`.
+- O PUT faz upsert: marcar de novo substitui o marcador anterior e preserva
+  `criado_em`, avançando `atualizado_em`.
+- O DELETE é idempotente: 204 mesmo quando o marcador não existia (inclusive
+  quando é de outra pessoa — o filtro por dono impede apagar a linha alheia).
+
+| Gateway | Serviço | Retorno |
+|---------|---------|---------|
+| `GET /api/marcadores?tipo=` | estudo | do próprio usuário, mais recente por `atualizado_em`; `tipo` é filtro opcional (inválido → 400) |
+| `PUT /api/marcadores/:questaoId` | estudo | corpo `{tipo, nota?}` → 200 com o marcador (cria ou substitui); tipo inválido ou nota fora de 280 → 400 |
+| `DELETE /api/marcadores/:questaoId` | estudo | 204, inclusive quando não existia |
 
 ---
 
