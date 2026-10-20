@@ -28,7 +28,11 @@ src/
 ├── screens/              # Uma tela por arquivo (14, contando o Login, a SegundaFase e a FichaDeBoasVindas)
 ├── components/ui/        # Componentes extraídos das telas
 │   ├── SeletorDeFase.jsx    # Topo da barra lateral: marca + <select> 1ª/2ª fase
-│   ├── ConfigSimulado.jsx   # "Vamos começar!": tipo, disciplina e quantidade do simulado
+│   ├── ConfigSimulado.jsx   # Simulado Geral: só a quantidade
+│   ├── Dialogo.tsx          # Diálogo centrado (pop-up da matéria, apostila); tela cheia no celular
+│   ├── Materia.tsx          # TileDaMateria (ícone na cor da área) e LadoNivel (4 degraus)
+│   ├── Metricas.tsx         # KpiCard, MiniCurva, GraficoArea, GraficoBarras, Rosca
+│   ├── ColunasDaProva.tsx   # Mapa da prova: coluna = peso, parte cheia = o que se leva hoje
 │   ├── Cronometro.jsx       # Contagem regressiva hh:mm:ss da barra do simulado
 │   ├── BotaoGoogle.jsx      # "Fazer login com o Google" (Login)
 │   ├── PassosDaFicha.jsx    # Os 4 passos da ficha de boas-vindas e o resumo das respostas
@@ -41,6 +45,8 @@ src/
     ├── api/retentativa.js  # Repete pedido recusado com 429 pelo nginx (puro, testado)
     ├── questions/acervo.js  # Tradução acervo → tela, embaralhar, fontes do quiz
     ├── simulado.js       # Sorteio, correção e origem da questão (simulado e quiz)
+    ├── areas.js          # 5 áreas, 20 matérias (ícone, cor, peso), nível, acertos para subir, perda esperada
+    ├── apostila.js       # Provas anteriores do acervo e a apostila de cada simulado
     ├── quiz.js           # Tamanho do quiz pela meta, sorteio e quiz misto (proporção da prova)
     ├── cadernos.js       # Cadernos da tela de Questões: um por matéria, selos, misto
     ├── historico.js      # Mescla a carga do histórico com o que foi respondido durante ela
@@ -188,11 +194,11 @@ recarregar a página volta para ela — mas não há URL por tela.
 | `dashboard` | `Dashboard.jsx` | Resumo do dia, próximo passo, evolução | `dash`, `setDash`, `acervo` |
 | `cronograma` | `Cronograma.jsx` | Sugestão de semana, calendário e Google Agenda (ver "Cronograma") | `diasDeEstudo`, `bloco`, `salvarAgenda`, `perfilCarregado`, `sessaoExpirou` |
 | `questoes` | `Questoes.jsx` | Meta do dia, cadernos por matéria e quiz (ver "Questões") | `quest`, `setQuest`, `registrar`, `acervo`, `recarregarAcervo`, `marcadores`, `definirMarcador`, `removerMarcador` |
-| `simulados` | `Simulados.jsx` | Hub, formulário, prova e resultado do simulado (ver "Simulados") | `sim`, `setSim`, `setResultadosHistorico`, `registrarRespostas`, `acervo`, `recarregarAcervo` |
+| `simulados` | `Simulados.jsx` | Provas anteriores, Meus simulados, Simulado Geral, prova, resultado e apostila (ver "Simulados") | `setResultadosHistorico`, `registrarRespostas`, `sessaoExpirou`, `acervo`, `recarregarAcervo` |
 | `revisoes` | `Revisoes.jsx` | Erradas, marcadores e menor desempenho, agrupadas por disciplina; busca, filtro e modal de leitura/refazer | `rev`, `setRev`, `marcadores`, `definirMarcador`, `removerMarcador`, `registrar`, `anotarMotivo` |
 | `desempenho` | `Desempenho.jsx` | Evolução ao longo do tempo | `perf`, `setPerf` |
 | `estatisticas` | `Estatisticas.jsx` | Números por período e disciplina | `filtros`, `setFiltros` |
-| `favoritos` | `Favoritos.jsx` | Questões com qualquer marcador, com o chip do motivo | lê de `revisao.marcadas`; usa `definirMarcador`/`removerMarcador` |
+| `favoritos` | `Favoritos.jsx` | "Marcadores" no menu: questões com qualquer marcador, com o chip do motivo | lê de `revisao.marcadas`; usa `definirMarcador`/`removerMarcador` |
 | `disciplinas` | `Disciplinas.jsx` | Aproveitamento por matéria e tema | `disc`, `setDisc`, `simularDisciplina` |
 | `anotacoes` | `Anotacoes.jsx` | Notas com pastas e tags | `notas`, `setNotas` |
 | `configuracoes` | `Configuracoes.jsx` | Nome, meta, data da prova, "Meu perfil de estudo", tema | `perfil`, `nome`, `atualizarNome`, `atualizarConfig`, `themeKey`, `setTheme`, `salvarFicha`, `fase`, `opcoesDeDificuldade`, `acervoCarregando`, `ancora`/`ancoraUsada` |
@@ -240,40 +246,45 @@ texto não marca a alternativa: o clique que termina a seleção é ignorado em
 `Questoes.jsx` e em `VerQuestao.tsx`. Grifo convive com a tesoura e não entra na
 correção.
 
-### Simulados (layout "estilo LEGJUR")
+### Simulados
 
-Quatro etapas num `useState` local da tela (`etapa`), nenhuma com URL:
+Simulado simula a prova inteira: o simulado e o treino **por matéria** saíram
+(treinar uma matéria é o "Praticar" de Disciplinas, o caderno em Questões ou o
+treino dentro da apostila). Dois tipos, os dois registrados no servidor
+(`/api/simulados`, migrations 006 e 009 do estudo-service):
 
-1. **Hub** — cartão "Simulado Geral — OAB 1ª Fase" e a grade "Treino por
-   Matéria", um card por disciplina do acervo com questões (contagem real,
-   `montarDisciplinas`). Questão sem disciplina não forma card: só entra no
-   geral. "Praticar" leva ao quiz da matéria (`praticarDisciplina`) — mesmo
-   nome e destino do botão de Disciplinas. Lista vazia distingue acervo
-   carregando (esqueleto), com erro (aviso com "Tentar de novo", que chama
-   `recarregarAcervo`) e vazio de fato.
-2. **"Vamos começar!"** (`ConfigSimulado`) — geral ou por disciplina e
-   dropdown de quantidade. Pedindo mais do que o acervo tem, avisa e a prova
-   sai com o que existe. Com o botão desabilitado, diz o motivo (ex.: matéria
-   pré-selecionada que ficou sem questões).
-3. **Prova** — todas as questões numa página, alternativas em rádio, sem
-   correção até finalizar. Barra fixa embaixo: `Cronometro` (tempo esgotado
-   finaliza sozinho), "X/N respondidas" e Finalizar.
-4. **Resultado** — nota, acertos/erros/em branco, e revisão questão a
-   questão com gabarito, a resposta dada e a explicação (com a etiqueta "não
-   revisada" do quiz). Filtro "Erradas e em branco".
+- **Prova anterior** — um exame do acervo refeito como foi aplicado: as
+  questões do exame na ordem do caderno (`questoesDoExame`), 5 horas, corpo
+  `{exame, tipo: 1}`. A lista sai de `provasAnteriores` (`lib/apostila.js`),
+  por ano; só abre exame com as 80 no acervo. O acervo não tem semestre nem
+  data de aplicação, só `ano`.
+- **Simulado Geral** — sorteio do acervo na proporção da prova
+  (`sortearMisto`, as nunca respondidas primeiro), corpo `{modalidade:
+  'geral', questoes: [ids]}`: a ordem fica no servidor.
 
-Finalizar manda as respostas pela fila (`registrarRespostas`, ver "429") e
-grava o resumo em `resultados_historico` (dado da conta). O resumo guarda
-`errados` como "não acertou" (inclui em branco), que é o que `metrics.js`
-lê, e `em_branco` à parte.
+Etapas num `useState` local (`etapa`): **lista** (cartões de métrica,
+"Provas anteriores" e "Meus simulados", Simulado Geral, gráfico de acertos e
+"Onde você deixou pontos"), **config** (`ConfigSimulado`, só a quantidade),
+**prova** (todas as questões numa página, sem correção, `Cronometro`) e
+**resultado** (nota e revisão com gabarito).
 
-Os cards de Disciplinas têm "Iniciar Simulado" (principal), "Praticar" (o
-quiz, a um clique) e "Ver temas" (ou o clique no nome).
+Abrir chama `POST /api/simulados`. 409 = já existe um aberto: a lista mostra
+"Retomar" (reabre as mesmas questões com o relógio desde `iniciado_em`; as
+respostas só vão ao servidor ao finalizar, então voltam em branco) e
+"Descartar" (`/abandonar`). Outra falha não impede a prova: ela corre sem
+registro, e a tela avisa que não haverá apostila.
 
-Disciplinas → "Iniciar Simulado": `simularDisciplina` (prop montada no
-`App`) grava `simulados.preDisciplina` e troca a tela; o Simulados abre no
-formulário com a matéria escolhida e zera a pré-seleção na montagem, para ela
-valer uma vez só.
+Finalizar manda as respostas pela fila (`registrarRespostas`, ver "429") com
+`simulado_id`, e só **depois** da fila chama `/finalizar` com os acertos — o
+serviço recusa resposta num simulado encerrado. Sem registro no servidor, o
+resumo vai para `resultados_historico` (dado da conta), que segue aparecendo
+em "Meus simulados" como "só neste navegador, sem apostila".
+
+**Apostila** (`montarApostila`, `lib/apostila.js`): a linha do simulado + as
+tentativas com aquele `simulado_id` + o acervo. Mapa das questões na ordem
+(certa, errada, em branco), desempenho por matéria naquela prova e treino:
+refazer só os erros, as em branco ou uma matéria (abrem no quiz por
+`revisarQuestoes`) e refazer a prova inteira (abre outro simulado).
 
 A origem de cada questão ("45º Exame de Ordem · questão 7 · FGV") vem de
 `origemDaQuestao`, a mesma no quiz e no simulado. O layout original escrevia
@@ -307,11 +318,13 @@ UTC e em São Paulo).
   andando só nos dias de estudo — a folga não "gasta" a matéria seguinte.
 - **Meta do dia.** `config.meta` (que a ficha deriva do tempo por dia) nos
   dias de estudo; 0 na folga.
-- **"Esta semana, até hoje"** (`ritmoDaSemana`): respondidas nos dias de
-  estudo de domingo (como o calendário) até hoje ÷ soma das metas desses
-  dias. O que foi respondido na folga não entra. Sem dia de estudo ainda na
-  semana (domingo de folga), mostra "—", não 0%. Antes dividia pela meta dos
-  próximos 7 dias e começava em ~14% para quem batia a meta de hoje.
+- **"Esta semana: X de Y dias de estudo cumpridos"** (`semanaEmDias`): um
+  dia de estudo está cumprido quando as respondidas chegam à meta; Y são os
+  dias de estudo de domingo até hoje. Sete quadrados (o de hoje enche com as
+  respondidas, a folga fica cinza), a semana passada e o recorde em 12
+  semanas, em dias cumpridos. Trocou a porcentagem (`ritmoDaSemana`, que
+  segue na lib), que não dizia o que fazer. Limite conhecido: compara com a
+  meta **atual**, também no passado (não há histórico de meta por dia).
 - **Bloco de estudo** (`blocoDeEstudo`): `profile_data.agenda.horario`
   ('HH:MM', padrão 19:00) e `ficha.minutosPorDia` (padrão 90). Aparece em
   cada dia de estudo ("19:00 · 1 h 30") e é editável no campo "Horário do
@@ -361,8 +374,8 @@ linha própria no proxy do Vite):
 
 ### Revisões (Caderno de Erros)
 
-A tela serve ao erro. São três abas — "Errei" (a padrão), "Marcadores" e
-"Menor desempenho"; um `rev.tab` antigo (`todas`/`aberto`) cai em "Errei" pelo
+A tela serve ao erro. São três abas — "Erradas" (a padrão, chave `errei`),
+"Marcadores" e "Menor desempenho"; um `rev.tab` antigo (`todas`/`aberto`) cai em "Erradas" pelo
 fallback de `ABAS[0]` em `Revisoes.jsx`, e o antigo `favoritas` cai em
 "Marcadores" sem reescrever o localStorage.
 
@@ -372,8 +385,15 @@ fallback de `ABAS[0]` em `Revisoes.jsx`, e o antigo `favoritas` cai em
   anterior à de hoje e o acerto da última tentativa de hoje; o corte é o dia
   **local**, não o UTC.
 - **Lista:** `agruparPorDisciplina` mantém a ordem da aba e cria um grupo por
-  disciplina (vazia vira "Sem classificação"). Cada grupo tem a contagem, os
-  erros sem motivo (na aba "Errei") e "Refazer as N".
+  disciplina (vazia vira "Sem classificação"). Cada grupo é um **cartão de
+  matéria** (ladrilho, contagem, sem justificativa, temas, nível e peso na
+  prova, "Refazer as N"); o clique abre o **pop-up da matéria** (`Dialogo`)
+  com os cartões das questões. O pop-up lê o grupo da lista viva: a questão
+  corrigida sai dele sem fechá-lo.
+- **Justificativa** (antes "Por que errei?"): o motivo e a nota da tentativa
+  errada. A nota de um marcador "Dúvida" numa questão errada ainda sem
+  justificativa vira a nota da justificativa (`preencherJustificativaDaDuvida`
+  no `App`), como "Não sabia" já preenchia o motivo.
 - **Marcadores:** a aba lista as questões com qualquer marcador, agrupadas
   como as outras. Os chips "Todas (n)" e um por tipo (`contarPorTipo`) filtram
   a lista; a legenda "Como funcionam os marcadores" é um `<details>` aberto na

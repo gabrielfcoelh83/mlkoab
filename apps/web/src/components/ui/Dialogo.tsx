@@ -23,6 +23,11 @@ export default function Dialogo({ titulo, sub, acoes, onFechar, children, largur
   const idTitulo = useId();
   const fecharRef = useRef<HTMLButtonElement>(null);
   const painelRef = useRef<HTMLDivElement>(null);
+  // O `onFechar` costuma chegar como função nova a cada render. Com ele nas
+  // dependências, o efeito rodava de novo a cada render e o foco voltava ao
+  // botão de fechar, tirando-o de onde a pessoa estava.
+  const fecharAtual = useRef(onFechar);
+  useEffect(() => { fecharAtual.current = onFechar; }, [onFechar]);
 
   useEffect(() => {
     const anterior = document.activeElement as HTMLElement | null;
@@ -35,7 +40,7 @@ export default function Dialogo({ titulo, sub, acoes, onFechar, children, largur
       if (outros.length > 0) return;
       if (evento.key === 'Escape') {
         evento.stopPropagation();
-        onFechar();
+        fecharAtual.current();
         return;
       }
       // Tab preso no painel: sem isso o foco escapava para a tela atrás.
@@ -60,7 +65,7 @@ export default function Dialogo({ titulo, sub, acoes, onFechar, children, largur
       document.removeEventListener('keydown', aoTeclar);
       anterior?.focus?.();
     };
-  }, [onFechar]);
+  }, []);
 
   return createPortal(
     <div

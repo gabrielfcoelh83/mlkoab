@@ -106,7 +106,7 @@ export default function Dashboard({ theme, s, go, config, usuarioTentativas, res
             <div style={{ width: `${meta.pct}%`, height: '100%', background: theme.primary, borderRadius: 5, transition: 'width 320ms var(--ease-out)' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6a665f', marginTop: 6 }}>
-            <span>{meta.respondidas} de {meta.meta} hoje</span>
+            <span data-testid="meta-de-hoje">{meta.respondidas} de {meta.meta} hoje</span>
             <span>{meta.batida ? 'meta de hoje batida' : `${meta.faltam} restantes`}</span>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px solid #eeebe5', flexWrap: 'wrap' }}>
