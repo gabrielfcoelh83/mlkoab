@@ -427,6 +427,20 @@ describe('simulado geral', () => {
     expect((await geral(['9'])).status).toBe(409);
   });
 
+  it('não aceita nota acima do número de questões sorteadas', async () => {
+    const aberto = await geral();
+    const res = await finalizar(aberto.body.id, { acertos: 4, anuladas: 0 });
+
+    expect(res.status).toBe(400);
+    const { rows } = await pool.query('SELECT status FROM simulados WHERE id = $1', [aberto.body.id]);
+    expect(rows[0].status).toBe('aberto');
+  });
+
+  it('recusa id de questão com espaço nas pontas', async () => {
+    const res = await abrir(DONO, { modalidade: 'geral', questoes: [' 101'] });
+    expect(res.status).toBe(400);
+  });
+
   it('recebe respostas e finaliza como a prova real', async () => {
     const aberto = await geral();
     expect((await responder(aberto.body.id, DONO, '101')).status).toBe(201);

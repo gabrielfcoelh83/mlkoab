@@ -199,7 +199,7 @@ recarregar a página volta para ela — mas não há URL por tela.
 | `desempenho` | `Desempenho.jsx` | Evolução ao longo do tempo | `perf`, `setPerf` |
 | `estatisticas` | `Estatisticas.jsx` | Números por período e disciplina | `filtros`, `setFiltros` |
 | `favoritos` | `Favoritos.jsx` | "Marcadores" no menu: questões com qualquer marcador, com o chip do motivo | lê de `revisao.marcadas`; usa `definirMarcador`/`removerMarcador` |
-| `disciplinas` | `Disciplinas.jsx` | Aproveitamento por matéria e tema | `disc`, `setDisc`, `simularDisciplina` |
+| `disciplinas` | `Disciplinas.jsx` | Foco agora, mapa da prova e lista por área; temas por matéria | `disc`, `setDisc` |
 | `anotacoes` | `Anotacoes.jsx` | Notas com pastas e tags | `notas`, `setNotas` |
 | `configuracoes` | `Configuracoes.jsx` | Nome, meta, data da prova, "Meu perfil de estudo", tema | `perfil`, `nome`, `atualizarNome`, `atualizarConfig`, `themeKey`, `setTheme`, `salvarFicha`, `fase`, `opcoesDeDificuldade`, `acervoCarregando`, `ancora`/`ancoraUsada` |
 | — (perfil sem ficha) | `FichaDeBoasVindas.jsx` | Ficha obrigatória antes do app (ver "Ficha de boas-vindas") | não recebe as comuns: `theme`, `s`, `email`, `iniciais`, `opcoesDeDificuldade`, `acervoCarregando`, `onSalvar`, `onEntrar`, `onSair` |

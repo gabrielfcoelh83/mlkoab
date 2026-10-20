@@ -1481,6 +1481,45 @@ test.describe('Simulados', () => {
     await expect(page.locator('[data-testid="apostila"]')).toHaveCount(0);
     await expect(page.locator('text=Questão 1 de direito penal')).toBeVisible();
   });
+
+  test('aberto com respostas já gravadas oferece concluir o registro, não refazer', async ({ page }) => {
+    await acervo(page);
+    const ABERTO = {
+      id: 502, modalidade: 'geral', exame: null, tipo: null, questoes: ['9101', '9102'],
+      status: 'aberto', refeito: false, iniciado_em: '2026-10-01T12:00:00Z', finalizado_em: null,
+      acertos: null, anuladas: null, nota: null, duracao_seg: null, fora_do_tempo: null,
+    };
+    const finalizados = [];
+    await page.route('**/api/simulados', (rota) =>
+      rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ABERTO]) }));
+    await page.route('**/api/simulados/502/finalizar', async (rota) => {
+      finalizados.push(rota.request().postDataJSON());
+      await rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...ABERTO, status: 'finalizado' }) });
+    });
+    // A fila gravou as respostas, mas o /finalizar não chegou ao servidor.
+    await page.route('**/api/tentativas?*', (rota) => (rota.request().method() === 'GET'
+      ? rota.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tentativas: [
+            { id: 11, questao_id: '9101', correta: true, alternativa: 2, tempo_seg: null, respondida_em: '2026-10-01T12:30:00Z', simulado_id: 502, origem: 'simulado' },
+            { id: 12, questao_id: '9102', correta: false, alternativa: 0, tempo_seg: null, respondida_em: '2026-10-01T12:30:00Z', simulado_id: 502, origem: 'simulado' },
+          ],
+          total: 2, limite: 1000, offset: 0,
+        }),
+      })
+      : rota.continue()));
+
+    await entrar(page);
+    await page.click('[data-testid="nav-simulados"]');
+    await expect(page.locator('[data-testid="simulado-sem-registro"]')).toContainText('2 respostas já estão salvas');
+    await expect(page.locator('[data-testid="retomar-simulado"]')).toHaveCount(0);
+
+    await page.click('[data-testid="concluir-registro"]');
+    await expect.poll(() => finalizados.length).toBe(1);
+    expect(finalizados[0]).toEqual({ acertos: 1, anuladas: 0 });
+  });
 });
 
 test.describe('Cadernos de questões', () => {

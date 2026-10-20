@@ -32,15 +32,24 @@ const MINUTOS_DA_PROVA = 300;
 // Botão secundário dos cards: o cheio fica só para a ação principal da tela.
 const btnEscuro = { background: '#fff', color: '#1c1b19', border: '1px solid #d6d1c8', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
 
+// Servidor anterior à migration 009 não manda `modalidade`: decide pela forma
+// da linha, para uma linha geral nunca cair no ramo da prova real.
+const ehGeral = (linha) => linha?.modalidade === 'geral' || Array.isArray(linha?.questoes);
+
+// Simulados cuja fila de respostas ainda corre, por id do servidor. No módulo,
+// e não no estado da tela: trocar de tela e voltar durante a fila não pode
+// oferecer "Retomar" ou "Descartar" do simulado que acabou de terminar.
+const FINALIZANDO = new Set();
+
 const dataCurta = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : '');
 
 function nomeDoSimulado(linha) {
   if (!linha) return 'Simulado';
-  if (linha.modalidade === 'geral') return `Simulado Geral de ${dataCurta(linha.iniciado_em)}`;
+  if (ehGeral(linha)) return `Simulado Geral de ${dataCurta(linha.iniciado_em)}`;
   return `${linha.exame}º Exame de Ordem`;
 }
 
-const totalDoSimulado = (linha) => (linha.modalidade === 'geral' ? (linha.questoes || []).length : QUESTOES_DA_PROVA);
+const totalDoSimulado = (linha) => (ehGeral(linha) ? (linha.questoes || []).length : QUESTOES_DA_PROVA);
 
 // Simulados de dois tipos, ambos registrados no servidor (estudo-service):
 // a prova anterior, refeita como foi aplicada (as 80 do exame, na ordem, em 5
@@ -146,14 +155,30 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
   // respostas só vão ao servidor ao finalizar, então a prova volta em branco.
   const retomar = (linha) => {
     const porId = new Map(QUESTOES.map((q) => [String(q.id), q]));
-    const pool = linha.modalidade === 'geral'
+    const pool = ehGeral(linha)
       ? (linha.questoes || []).map((id) => porId.get(String(id))).filter(Boolean)
       : questoesDoExame(QUESTOES, linha.exame);
     if (pool.length === 0) { setAviso('As questões deste simulado não estão no acervo carregado.'); return; }
-    const total = linha.modalidade === 'geral' ? tempoDeProvaMinutos(pool.length) : MINUTOS_DA_PROVA;
+    const total = ehGeral(linha) ? tempoDeProvaMinutos(pool.length) : MINUTOS_DA_PROVA;
     const inicio = Date.parse(linha.iniciado_em) || Date.now();
     const passados = Math.floor((Date.now() - inicio) / 60000);
-    comecar({ pool, linha, modalidade: linha.modalidade, nome: nomeDoSimulado(linha), minutos: Math.max(1, total - passados), inicio });
+    comecar({ pool, linha, modalidade: ehGeral(linha) ? 'geral' : 'prova', nome: nomeDoSimulado(linha), minutos: Math.max(1, total - passados), inicio });
+  };
+
+  // O simulado aberto que já tem respostas gravadas é um que terminou e não
+  // chegou a ser finalizado (a rede caiu no /finalizar). Refazê-lo gravaria as
+  // respostas de novo, contando tudo em dobro no desempenho: o caminho é só
+  // concluir o registro, com a nota do que já está gravado.
+  const concluirRegistro = async (linha) => {
+    const ap = montarApostila(linha, { tentativas: usuarioTentativas, acervo: QUESTOES });
+    try {
+      await finalizarNoServidor(linha.id, { acertos: ap?.acertos ?? 0, anuladas: 0 });
+      setAviso(null);
+    } catch (err) {
+      if (err.status === 401) { sessaoExpirou?.(); return; }
+      setAviso(`O simulado não foi finalizado no servidor: ${err.message}`);
+    }
+    carregar();
   };
 
   const descartar = async (linha) => {
@@ -195,13 +220,16 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
     if (registrarRespostas) {
       const respostas = respostasParaRegistrar(simulado.questoes_pool, simulado.respostas)
         .map((r) => (servidorId ? { ...r, simuladoId: servidorId } : r));
+      if (servidorId) FINALIZANDO.add(servidorId);
       Promise.resolve(registrarRespostas(respostas)).then(async (fila) => {
-        if (!servidorId || fila?.sessaoTrocou) return;
+        if (!servidorId || fila?.sessaoTrocou) { FINALIZANDO.delete(servidorId); return; }
         try {
           await finalizarNoServidor(servidorId, { acertos: correcao.acertos, anuladas: 0 });
         } catch (err) {
           if (err.status === 401) { sessaoExpirou?.(); return; }
           setAviso(`O simulado não foi finalizado no servidor: ${err.message}`);
+        } finally {
+          FINALIZANDO.delete(servidorId);
         }
         carregar();
       });
@@ -238,13 +266,19 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
 
     const doServidor = servidor.simulados;
     const aberto = doServidor.find((x) => x.status === 'aberto') || null;
+    const finalizandoAberto = aberto ? FINALIZANDO.has(aberto.id) : false;
+    const respondidasNoAberto = aberto
+      ? Object.values(usuarioTentativas || {}).filter((r) => (r?.tentativas || []).some((t) => t.simulado_id === aberto.id)).length
+      : 0;
     const finalizados = doServidor.filter((x) => x.status === 'finalizado');
     const locais = (resultados_historico || []).filter((r) => !r.servidor_id);
     const feitos = finalizados.length + locais.length;
 
     // Placar em acertos de 80 só para provas de 80 questões: um geral de 20
     // não entra na média nem na curva, ou a curva compararia coisas diferentes.
-    const completos = finalizados.filter((x) => totalDoSimulado(x) === QUESTOES_DA_PROVA).slice().reverse();
+    // Prova refeita (a pessoa já viu as questões) fica fora da média e da
+    // curva, como a migration 006 decidiu; ela continua na lista, com o aviso.
+    const completos = finalizados.filter((x) => totalDoSimulado(x) === QUESTOES_DA_PROVA && !x.refeito).slice().reverse();
     const ultimo = completos[completos.length - 1] || null;
     const penultimo = completos[completos.length - 2] || null;
     const media = completos.length > 0 ? Math.round(completos.reduce((t, x) => t + x.nota, 0) / completos.length) : null;
@@ -255,7 +289,7 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
     const visiveis = provas.filter((p) => ano === 'todos' || String(p.ano) === String(ano));
     const feitasPorExame = new Map();
     for (const x of doServidor) {
-      if (x.modalidade === 'prova' && x.status !== 'abandonado') {
+      if (!ehGeral(x) && x.status !== 'abandonado') {
         if (!feitasPorExame.has(x.exame)) feitasPorExame.set(x.exame, x); // a mais recente primeiro
       }
     }
@@ -338,7 +372,23 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
           <div role="status" data-testid="aviso-simulado" style={{ ...s.card, padding: '12px 16px', fontSize: 13, color: '#7A5A12', background: '#FBF6EA' }}>{aviso}</div>
         )}
 
-        {aberto && (
+        {aberto && finalizandoAberto && (
+          <div role="status" data-testid="simulado-finalizando" style={{ ...s.card, padding: '12px 16px', fontSize: 13, color: '#4f4b45' }}>
+            Salvando as respostas do {nomeDoSimulado(aberto)}. A apostila aparece em "Meus simulados" quando terminar.
+          </div>
+        )}
+        {aberto && !finalizandoAberto && respondidasNoAberto > 0 && (
+          <div data-testid="simulado-sem-registro" style={{ ...s.card, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <h2 style={s.sectionTitle}>O {nomeDoSimulado(aberto)} não terminou de ser registrado</h2>
+              <p style={{ ...s.pageSub, margin: '3px 0 0' }}>
+                {respondidasNoAberto} {respondidasNoAberto === 1 ? 'resposta já está salva' : 'respostas já estão salvas'}. Concluir o registro gera a apostila com elas, sem refazer a prova.
+              </p>
+            </div>
+            <button data-testid="concluir-registro" style={s.btnPrimary} onClick={() => concluirRegistro(aberto)}>Concluir o registro</button>
+          </div>
+        )}
+        {aberto && !finalizandoAberto && respondidasNoAberto === 0 && (
           <div data-testid="simulado-aberto" style={{ ...s.card, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ width: 40, height: 40, borderRadius: 9, background: theme.primarySoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
               <Icon name="timer" color={theme.primary} size={20} />
@@ -522,9 +572,10 @@ export default function Simulados({ theme, s, data, setResultadosHistorico, resu
               treinar={(questoes) => { setApostilaId(null); revisarQuestoes?.(questoes); }}
               refazerProva={aberto ? null : () => {
                 setApostilaId(null);
-                if (linha.modalidade === 'prova') iniciarProva(linha.exame);
+                if (!ehGeral(linha)) iniciarProva(linha.exame);
                 else {
                   const pool = ap.itens.map((x) => x.questao).filter(Boolean);
+                  if (pool.length === 0) { setAviso('As questões deste simulado não estão no acervo carregado.'); return; }
                   abrirEComecar({ modalidade: 'geral', questoes: pool.map((q) => String(q.id)) }, (l) => ({
                     pool, linha: l, modalidade: 'geral', nome: 'Simulado Geral', minutos: tempoDeProvaMinutos(pool.length),
                   }));

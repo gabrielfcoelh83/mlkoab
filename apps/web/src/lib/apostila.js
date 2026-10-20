@@ -60,7 +60,10 @@ export function montarApostila(simulado, { tentativas = {}, acervo = [] } = {}) 
   if (!simulado) return null;
   const porId = new Map(acervo.map((q) => [String(q.id), q]));
 
-  const ids = simulado.modalidade === 'geral'
+  // Sem `modalidade` (servidor anterior à migration 009), a lista de questões
+  // é o que distingue o geral.
+  const geral = simulado.modalidade === 'geral' || Array.isArray(simulado.questoes);
+  const ids = geral
     ? (simulado.questoes || []).map(String)
     : questoesDoExame(acervo, simulado.exame).map((q) => String(q.id));
 

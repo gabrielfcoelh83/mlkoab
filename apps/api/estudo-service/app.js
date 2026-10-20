@@ -678,7 +678,9 @@ function lerQuestoesDoSimulado(v) {
   if (!Array.isArray(v) || v.length < 1 || v.length > QUESTOES_DA_PROVA) return null;
   const ids = v.map((id) => (typeof id === 'number' && Number.isInteger(id) ? String(id) : id));
   const validos = ids.every(
-    (id) => typeof id === 'string' && id.trim() !== '' && id.length <= ID_DE_QUESTAO_MAX
+    // Sem espaço nas pontas: o id é gravado como veio, e " 101" nunca
+    // casaria com a questão 101 do acervo.
+    (id) => typeof id === 'string' && id !== '' && id === id.trim() && id.length <= ID_DE_QUESTAO_MAX
   );
   if (!validos || new Set(ids).size !== ids.length) return null;
   return ids;
@@ -833,6 +835,9 @@ async function encerrarSimulado(req, res, { status, acertos = null, anuladas = n
       `UPDATE simulados
           SET status = $1, finalizado_em = NOW(), acertos = $2, anuladas = $3
         WHERE id = $4 AND user_id = $5 AND status = 'aberto'
+          -- No geral, a nota não passa do número de questões sorteadas.
+          AND (modalidade <> 'geral' OR $2::int IS NULL
+               OR $2::int + COALESCE($3::int, 0) <= cardinality(questoes))
        RETURNING ${COLUNAS_SIMULADO}`,
       [status, acertos, anuladas, id, req.user.id]
     );
@@ -840,12 +845,16 @@ async function encerrarSimulado(req, res, { status, acertos = null, anuladas = n
 
     // 404 para o que não existe ou é de outra pessoa (não confirma que o
     // id existe); 409 para o que já foi encerrado.
+    // Ainda aberto depois do UPDATE: foi o teto do geral que barrou.
     const { rows: existe } = await pool.query(
-      'SELECT 1 FROM simulados WHERE id = $1 AND user_id = $2',
+      'SELECT status, cardinality(questoes) AS total FROM simulados WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
     if (existe.length === 0) {
       return res.status(404).json({ error: 'Simulado não encontrado' });
+    }
+    if (existe[0].status === 'aberto') {
+      return res.status(400).json({ error: `acertos e anuladas somam mais que as ${existe[0].total} questões do simulado` });
     }
     return res.status(409).json({ error: 'Simulado já encerrado' });
   } catch (error) {

@@ -49,6 +49,13 @@ const q = (id, extra = {}) => ({ id, correta: 0, disciplina: 'Direito Penal', ex
   exigir(questoesParaTreinar(a, { materia: 'Direito Civil' }).map((x) => x.id).join() === '10', 'treinar a matéria');
 }
 
+// --- servidor anterior à migration 009: linha sem `modalidade` ---
+{
+  const acervo = [q(10), q(11, { exame: null })];
+  const a = montarApostila({ id: 8, questoes: ['10'] }, { acervo });
+  exigir(a.itens.map((x) => x.id).join() === '10', 'sem modalidade, a lista de questões manda: é geral');
+}
+
 // --- apostila da prova real ---
 {
   const acervo = [q(1, { numero: 2 }), q(2, { numero: 1 }), q(3, { exame: 45 })];

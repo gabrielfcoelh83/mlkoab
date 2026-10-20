@@ -53,6 +53,14 @@ const UTEIS = [1, 2, 3, 4, 5];
   exigir(s.recorde === 0 && s.semanaPassada === 0, 'sem histórico, recorde e semana passada zerados');
 }
 
+{
+  // Meta zero (dado estragado): nenhum dia vira "cumprido" de graça, nem no
+  // passado nem no recorde.
+  const tentativas = respostas([['2026-09-28', 3], ['2026-10-05', 3]]);
+  const s = semanaEmDias({ tentativas, meta: 0, diasDeEstudo: UTEIS, hoje: SEXTA });
+  exigir(s.cumpridos === 0 && s.semanaPassada === 0 && s.recorde === 0, `meta 0: ${JSON.stringify({ ...s, dias: undefined })}`);
+}
+
 if (falhas.length > 0) {
   console.error(`✗ ${falhas.length} falha(s) em semana.test.js:`);
   for (const f of falhas) console.error(`  - ${f}`);

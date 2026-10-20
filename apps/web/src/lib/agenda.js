@@ -195,6 +195,7 @@ export const SEMANAS_DO_RECORDE = 12;
 // sábado que contém `inicio`.
 function cumpridosNaSemana(porDia, inicio, { meta, diasDeEstudo, ate = null }) {
   let cumpridos = 0;
+  if (!(meta > 0)) return 0;
   for (let i = 0; i < 7; i++) {
     const data = new Date(inicio);
     data.setDate(data.getDate() + i);
