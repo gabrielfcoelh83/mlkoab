@@ -44,6 +44,7 @@ export function chaveDeTema(chave) {
 /** Leva a paleta para as variáveis CSS que os componentes do shadcn leem. */
 export function aplicarTemaNoDocumento(theme, raiz = document.documentElement) {
   raiz.style.setProperty('--primary', theme.primary);
+  raiz.style.setProperty('--primary-dark', theme.primaryDark);
   raiz.style.setProperty('--primary-soft', theme.primarySoft);
   raiz.style.setProperty('--tema-acento', theme.accent);
 }

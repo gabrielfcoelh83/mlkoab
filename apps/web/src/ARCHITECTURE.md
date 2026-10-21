@@ -23,9 +23,10 @@ questão: ela vai explicar as do acervo, num chat que ainda não existe.
 ```
 src/
 ├── main.jsx              # Entry point (StrictMode + App)
+├── entrada-404.jsx       # Entry point da página 404 (monta só a NaoEncontrada)
 ├── App.jsx               # Estado global, carga de dados, layout e navegação
 ├── index.css             # Estilos globais e animações
-├── screens/              # Uma tela por arquivo (14, contando o Login, a SegundaFase e a FichaDeBoasVindas)
+├── screens/              # Uma tela por arquivo (15, contando o Login, a SegundaFase, a FichaDeBoasVindas e a NaoEncontrada)
 ├── components/ui/        # Componentes extraídos das telas
 │   ├── SeletorDeFase.jsx    # Topo da barra lateral: marca + <select> 1ª/2ª fase
 │   ├── ConfigSimulado.jsx   # Simulado Geral: só a quantidade
@@ -74,6 +75,7 @@ api/                      # Funções serverless (Vercel)
 ├── buscar-datajud.js     # DataJud (CNJ)
 └── _lib/                 # auth.js (exige login), datajud.js, ia.js (Gemini, plano gratuito)
 
+404.html                  # Página de endereço não encontrado (HTML próprio, ver "Página 404")
 server/dev-api.js         # Serve as rotas de api/ em dev (o Vite não serve)
 scripts/testes-lib.js     # Roda os testes de lib/ (npm run test:lib)
 tests/                    # Testes unitários da lib/, de API e e2e (Playwright)
@@ -204,6 +206,53 @@ recarregar a página volta para ela — mas não há URL por tela.
 | `configuracoes` | `Configuracoes.jsx` | Nome, meta, data da prova, "Meu perfil de estudo", tema | `perfil`, `nome`, `atualizarNome`, `atualizarConfig`, `themeKey`, `setTheme`, `salvarFicha`, `fase`, `opcoesDeDificuldade`, `acervoCarregando`, `ancora`/`ancoraUsada` |
 | — (perfil sem ficha) | `FichaDeBoasVindas.jsx` | Ficha obrigatória antes do app (ver "Ficha de boas-vindas") | não recebe as comuns: `theme`, `s`, `email`, `iniciais`, `opcoesDeDificuldade`, `acervoCarregando`, `onSalvar`, `onEntrar`, `onSair` |
 | — (`state.fase`) | `SegundaFase.jsx` | 2ª fase: questões discursivas (ver "Fases") | não recebe as comuns: `theme`, `s`, `fase`, `estado`/`setEstado` (`state.segundaFase`), `gravarResposta`, `sessaoExpirou` |
+
+O Login (`Login.jsx`) anima com os primitivos do Animate UI — entrada, troca da
+frase do título — e usa o `Button` do shadcn (`components/ui/button.jsx`) nos
+botões: `default` na ação principal (com a borda `--primary-dark` que o tema
+troca junto), `outline` no Google e no "Conhecer a plataforma", `ghost`/`link`
+nas abas da vitrine e nos atalhos, e `size="lg"` (42px, texto 13,5) nos de
+ação. O componente neutraliza o botão nativo do navegador (o app entra sem o
+preflight do Tailwind) e o "toque" virou `motion-safe:active:scale` — CSS, que
+sai sozinho em quem pediu movimento reduzido. A tela respeita
+`prefers-reduced-motion`, como o resto do app: sob movimento reduzido sai o
+deslocamento e a frase do `h1` fica parada. Navegadores que já chegam com a preferência ligada (o Orca browser
+é um deles) mostram a tela sem movimento; em dev, `?motion=full` ignora a
+preferência para conferir as animações. O parâmetro só é lido no dev server —
+no build de produção ele nem aparece no bundle.
+
+A validação do formulário é da casa: o `<form>` é `noValidate`, então o balão
+do navegador ("Preencha este campo.") não aparece. `primeiroProblema()` confere
+e-mail vazio e malformado (mesma régua do `emailValido` do auth-service), senha
+vazia e, em conta nova ou redefinição, senha com 8+ caracteres e igual à
+confirmação — esta última antes de qualquer requisição. O problema aparece no
+`Aviso` e o campo culpado fica aceso em vermelho (`aria-invalid`), com o foco
+nele e um tremor de `shift.shake` disparado na mão (`useAnimate`), que sai sob
+movimento reduzido: sobra o vermelho e o foco.
+
+### Página 404 (`404.html`)
+
+Quem cai num endereço que não existe não passa pelo `App`: o host responde com o
+`404.html` da raiz — um HTML próprio, listado no `build.rollupOptions` do
+`vite.config.js`, que carrega só a `screens/NaoEncontrada.jsx` pela entrada
+`entrada-404.jsx`. É isso que mantém o status 404 de verdade na resposta (um SPA
+que responde 200 em qualquer rota não tem como dar isso), e é por isso que a
+página não tem sessão, nem menu, nem chamada à API: ela precisa abrir com o
+backend fora do ar e com a Vercel respondendo sozinha. Na Vercel o
+`dist/404.html` já basta — o arquivo no lugar certo do build vira a página de
+erro —, sem nada para declarar no `vercel.json`.
+
+O desenho é o do app: os algarismos do "404" ficam como marca d'água (tinta a
+5%) atrás do título em serifa, a paleta é a que a pessoa escolheu em
+Configurações (lida do estado salvo; sem escolha, o Bordô) e as ações são os
+mesmos `Button` do shadcn. A entrada escalonada é a `.tela` do `index.css`, com
+o mesmo comportamento sob movimento reduzido. "Voltar" usa o histórico da aba;
+numa aba sem histórico (link colado, favorito velho), voltar levaria para fora
+do site, e aí ele vai para o início.
+
+Em dev o Vite responde qualquer caminho com o app (o fallback do SPA, que a
+produção não tem), então a página se vê em `http://localhost:5173/404.html` —
+que é exatamente o que o e2e faz.
 
 ### Questões: meta do dia e cadernos
 
@@ -687,9 +736,14 @@ da sessão anterior não derruba quem entrou depois — e, no `App`, passa por
 `encerrarSessao`, que volta ao Login, venha de uma carga ou de uma gravação.
 
 **Login com o Google.** Pelo Google Identity Services (`BotaoGoogle.jsx`,
-script `accounts.google.com/gsi/client`). O botão só aparece, e o script só
-carrega, com `VITE_GOOGLE_CLIENT_ID` no build — na Vercel e, em dev, no
-`.env.local`. O mesmo Client ID precisa estar no auth-service
+script `accounts.google.com/gsi/client`). O botão é desenhado pela própria
+tela, no mesmo estilo outline dos outros, e o script do Google só desce no
+primeiro clique. Com `VITE_GOOGLE_CLIENT_ID` no build — na Vercel e, em dev,
+no `.env.local` — o clique abre o seletor de contas do GSI (`prompt()`, One
+Tap/FedCM): o botão oficial é um iframe com tipografia e cantos próprios e não
+segue o desenho da tela. Sem o Client ID, ou se o script não carregar, o
+clique avisa que o login com o Google ainda não está disponível, em vez de não
+fazer nada. O mesmo Client ID precisa estar no auth-service
 (`GOOGLE_CLIENT_ID`); sem ele a rota responde 503. A origem de onde o front
 roda (o domínio da Vercel e `http://localhost:5173`) tem de estar nas
 "Origens JavaScript autorizadas" do Client ID no Google Cloud.
@@ -728,6 +782,11 @@ a aba.
 que a requisição não chegou (rede ou CORS — o navegador não deixa distinguir).
 Erro de carga de tentativas e de gravação aparece na faixa `erroSync` do topo;
 erro do acervo aparece na própria tela de Questões, com botão de recarregar.
+5xx sem corpo JSON (nginx/gateway) e 429 sem corpo viram mensagem de tela —
+"Algo falhou do nosso lado. Tente de novo em instantes." e "Muitas tentativas.
+Espere um pouco e tente de novo." —, nunca `Erro 500`; quando o serviço manda
+`{ error }`, é essa a mensagem. Fora isso, o 4xx sem corpo mantém `Erro <status>`
+(é falha de contrato, ajuda a achar o pedido errado).
 
 | Função | Rota | Observação |
 |---|---|---|

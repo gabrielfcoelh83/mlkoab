@@ -436,12 +436,12 @@ test.describe('Criar conta', () => {
     expect(chamou).toBe(false);
   });
 });
-// Sem VITE_GOOGLE_CLIENT_ID no build (como aqui, e em produção até o Client ID
-// ser criado) o botão do Google não aparece e o script dele nem é carregado —
-// a tela de login continua a de sempre. O login com o Google em si precisa do
-// Google de verdade e não roda em e2e; quem confere o token é testado no
-// auth-service.
-test('sem Client ID, o login não mostra o Google nem carrega o script dele', async ({ page }) => {
+// Sem VITE_GOOGLE_CLIENT_ID no build (como aqui) o botão do Google aparece no
+// desenho da tela, mas o script dele só seria baixado no clique — e o clique
+// avisa que o login com o Google ainda não está disponível, em vez de não
+// fazer nada. O login em si precisa do Google de verdade e não roda em e2e;
+// quem confere o token é testado no auth-service.
+test('sem Client ID, o botão do Google aparece e explica que não está disponível', async ({ page }) => {
   const pedidosAoGoogle = [];
   page.on('request', (r) => { if (r.url().includes('accounts.google.com')) pedidosAoGoogle.push(r.url()); });
 
@@ -450,8 +450,17 @@ test('sem Client ID, o login não mostra o Google nem carrega o script dele', as
   await page.reload();
 
   await expect(page.locator('button[type="submit"]')).toBeVisible();
-  await expect(page.locator('[data-testid="login-google"]')).toHaveCount(0);
+  const google = page.locator('[data-testid="login-google"]');
+  await expect(google).toBeVisible();
+  await expect(google).toContainText('Entrar com Google');
+  // Sem clique, nem o script do Google é baixado.
   expect(pedidosAoGoogle).toEqual([]);
+
+  await google.click();
+  await expect(page.locator('[role="alert"]')).toContainText('ainda não está disponível');
+  expect(pedidosAoGoogle).toEqual([]);
+  // O clique não envia o formulário: continua na tela, sem token.
+  expect(await page.evaluate(() => localStorage.getItem('ma-questoes-token-v1'))).toBeNull();
 });
 
 // O contêiner do formulário é item flex; sem `minWidth: 0` ele não encolhia
@@ -468,6 +477,39 @@ test('o login cabe na largura de celulares, sem rolagem horizontal', async ({ pa
     const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(sobra, `rolagem horizontal em ${largura}px`).toBe(0);
   }
+});
+
+// A página de endereço não encontrado é um HTML próprio (`404.html`), que o
+// host serve no lugar de uma rota inexistente — daí o endereço direto aqui, e
+// não uma navegação dentro do app. Quem chega nela não tem sessão: o que a
+// página precisa entregar é um caminho de volta, sem depender do servidor.
+test.describe('Página 404', () => {
+  test('devolve para o app sem depender do servidor', async ({ page }) => {
+    const pedidosAApi = [];
+    page.on('request', (r) => { if (r.url().includes('/api/')) pedidosAApi.push(r.url()); });
+
+    await page.goto('/404.html');
+    await expect(page.locator('h1')).toHaveText('Página não encontrada');
+    await expect(page.locator('[data-testid="nao-encontrada"]')).toContainText('não existe ou mudou de lugar');
+    await expect(page.locator('[data-testid="voltar-da-404"]')).toBeVisible();
+    expect(pedidosAApi).toEqual([]);
+
+    await page.locator('[data-testid="ir-para-o-inicio"]').click();
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('button[type="submit"]')).toBeVisible();
+  });
+
+  test('cabe na largura de celulares, com a ação principal em cima', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/404.html');
+
+    const inicio = await page.locator('[data-testid="ir-para-o-inicio"]').boundingBox();
+    const voltar = await page.locator('[data-testid="voltar-da-404"]').boundingBox();
+    expect(voltar.y).toBeGreaterThan(inicio.y);
+
+    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(sobra, 'rolagem horizontal na 404').toBe(0);
+  });
 });
 
 
