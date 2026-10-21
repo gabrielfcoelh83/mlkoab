@@ -116,7 +116,21 @@ async function req(caminho, { method = 'GET', body, auth = true, tempoMaximoMs }
     throw new ApiError(dados?.error || 'Sessão expirada', 401);
   }
 
-  if (!res.ok) throw new ApiError(dados?.error || `Erro ${res.status}`, res.status);
+  if (!res.ok) {
+    // 5xx quase sempre chega sem corpo JSON: o nginx/gateway devolve uma página
+    // de erro e o corpo do serviço que caiu não é confiável. Sem isto a tela
+    // mostraria "Erro 500" — código sem próximo passo. O 429 do nginx (limite
+    // de tentativas) também vem sem JSON, e aí o recado é esperar. Para o 4xx
+    // sem corpo, o número fica: é falha de contrato e ajuda a achar o pedido
+    // errado.
+    const mensagem = dados?.error
+      || (res.status >= 500
+        ? 'Algo falhou do nosso lado. Tente de novo em instantes.'
+        : res.status === 429
+          ? 'Muitas tentativas. Espere um pouco e tente de novo.'
+          : `Erro ${res.status}`);
+    throw new ApiError(mensagem, res.status);
+  }
 
   return dados;
 }

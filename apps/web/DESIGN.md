@@ -107,6 +107,7 @@ Barra lateral fixa de 232px (`s.sidebar`) + área principal com cabeçalho (`s.t
 - **Gráficos:** `GraficoArea` (curva suave, preenchimento a 7%, linha de referência tracejada), `GraficoBarras` (barras agrupadas de 12px) e `Rosca` (anel de 22px com tabela ao lado). SVG à mão, com `aria-label` descrevendo o dado e `<title>` em cada ponto. Sem modo escuro.
 - **Mapa da prova:** `ColunasDaProva`, uma coluna por matéria agrupada por área: altura = o que vale nas 80, parte cheia = o que se leva hoje, tracejado sem dados.
 - **Escolha de paleta:** miniatura do app em cada opção ([Configuracoes.jsx](src/screens/Configuracoes.jsx)), `role="radiogroup"`.
+- **Página 404:** os algarismos como marca d'água de tinta a 5% (`TINTA`, `currentColor`), encostando no título em Newsreader 52/500 na cor da paleta — a mesma escala do hero do Login. Fundo `theme.bg`, sem card, com os `Button` do shadcn: `default` "Ir para o início" e `outline` "Voltar", empilhados e de largura inteira no celular. Uma ilustração só, um título só.
 
 ---
 

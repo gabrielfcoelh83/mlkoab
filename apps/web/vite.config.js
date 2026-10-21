@@ -28,6 +28,20 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    // Dois HTMLs, e não um: além do app (`index.html`), a página de endereço
+    // não encontrado (`404.html`). Quem serve o 404 é o host, pelo arquivo no
+    // lugar certo do build — na Vercel, `dist/404.html` já basta, sem nada no
+    // vercel.json — e com ele a resposta sai com status 404 de verdade, o que
+    // o SPA (que responde 200 em qualquer rota) não tem como dar. Sem a lista
+    // aqui, o Rollup só emite o `index.html` e a 404 nem chega ao ar.
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
+        '404': fileURLToPath(new URL('./404.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     proxy: {
       // As mais específicas primeiro: o Vite casa na ordem de declaração.
